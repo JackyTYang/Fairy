@@ -1,0 +1,44 @@
+# --!-- This module refers to the open-source implementation of the MobileAgent series work
+from .screen_icon_perception import ScreenIconPerception
+from .screen_text_perception import ScreenTextPerception
+from PIL import Image, ImageDraw
+from ..entity import ScreenFileInfo
+import logging
+logging.getLogger().setLevel(logging.WARNING)
+
+class FineGrainedVisualPerceptor:
+    def __init__(self):
+        self.screen_text_perception = ScreenTextPerception()
+        self.screen_icon_perception = ScreenIconPerception()
+
+
+    def get_perception_infos(self, screenshot_file_info: ScreenFileInfo):
+        width, height = Image.open(screenshot_file_info.get_screenshot_file()).size
+        perception_infos = []
+
+        # Text Perception
+        text_perception_infos, text_center_point_list = self.screen_text_perception.get_text_perception(screenshot_file_info)
+        self.draw_coordinates_on_image(screenshot_file_info, text_center_point_list)
+        perception_infos.extend(text_perception_infos)
+
+        # Icon Perception
+        icon_perception_infos = self.screen_icon_perception.get_icon_perception(screenshot_file_info)
+        perception_infos.extend(icon_perception_infos)
+
+        for i in range(len(perception_infos)):
+            perception_infos[i]['coordinates'] = [
+                int((perception_infos[i]['coordinates'][0] + perception_infos[i]['coordinates'][2]) / 2),
+                int((perception_infos[i]['coordinates'][1] + perception_infos[i]['coordinates'][3]) / 2)]
+
+        return perception_infos, width, height
+
+    def draw_coordinates_on_image(self, screenshot_file_info, coordinates):
+        image = Image.open(screenshot_file_info.get_screenshot_file())
+        draw = ImageDraw.Draw(image)
+        point_size = 10
+        for coord in coordinates:
+            draw.ellipse((coord[0] - point_size, coord[1] - point_size, coord[0] + point_size, coord[1] + point_size),
+                         fill='red')
+        output_image_path = screenshot_file_info.get_screenshot_file("_output")
+        image.save(output_image_path)
+        return output_image_path

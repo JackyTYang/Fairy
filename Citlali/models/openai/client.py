@@ -6,6 +6,7 @@ from typing import List, Sequence, Mapping, Any, cast
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam, \
     ChatCompletionContentPartImageParam, ChatCompletionContentPartTextParam
+from openai.types.chat.chat_completion_content_part_image_param import ImageURL
 
 from ..entity import ChatMessage, ModelUsage, ResultMessage
 from ..model_client import ChatClient
@@ -36,7 +37,10 @@ class OpenAIChatMessage(ChatMessage):
                         elif isinstance(content_item, Image):
                             content.append(
                                 ChatCompletionContentPartImageParam(
-                                    image_url=content_item.to_data_uri(),
+                                    image_url=ImageURL(
+                                        url=content_item.to_data_uri(),
+                                        detail="auto"
+                                    ),
                                     type="image_url"
                                 )
                             )

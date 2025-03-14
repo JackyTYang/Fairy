@@ -17,7 +17,7 @@ class ScreenTextPerception:
     def get_text_perception(self, screenshot_file_info):
         logger.debug("Text Perception task (including Text Detection and Text Recognition) in progress...")
 
-        image = cv2.imread(screenshot_file_info.get_screenshot_file())
+        image = cv2.imread(screenshot_file_info.get_screenshot_fullpath())
         text, coordinates = self._ocr(image)
         text, coordinates = self._merge_text_blocks(text, coordinates)
 

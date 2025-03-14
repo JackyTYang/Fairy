@@ -1,3 +1,5 @@
+import asyncio
+
 from loguru import logger
 
 
@@ -20,6 +22,7 @@ class TaskExecutor:
 
             elif i < self.retry_times:
                 logger.error(f"{self.task_name} retrying [{i}/{self.retry_times}] ...")
+                await asyncio.sleep(2)
                 continue
 
             elif i == self.retry_times:

@@ -3,7 +3,7 @@ from asyncio import Future
 from datetime import datetime
 from typing import Any
 
-from Citlali.core.type import MessageType
+from ..core.type import MessageType
 
 
 class MessageContext:

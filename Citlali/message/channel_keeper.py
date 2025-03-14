@@ -3,7 +3,7 @@ import asyncio
 from loguru import logger
 
 from ..core.worker_keeper import WorkerKeeper
-from Citlali.core.type import ListenerType
+from ..core.type import ListenerType
 from .entity import MessageParcel
 
 

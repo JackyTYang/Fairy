@@ -2,7 +2,7 @@ from collections.abc import Callable
 from typing import cast, runtime_checkable, Protocol
 
 from .runtime import CitlaliRuntime
-from Citlali.core.type import ListenerType, MessageType
+from .type import ListenerType, MessageType
 
 
 def listener(listener_type, listen_filter=None, channel=None):
@@ -50,7 +50,7 @@ class Worker():
                         return await listener(self, message, message_context)
             case ListenerType.ON_NOTIFIED:
                 for listener in self._listeners[listener_type]:
-                    if listener.channel == channel:
+                    if listener.channel == channel and (listener.listen_filter is None or listener.listen_filter(message)):
                         return await listener(self, message, message_context)
 
     async def call(self, worker_name, message):

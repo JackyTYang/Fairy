@@ -11,7 +11,7 @@ import concurrent
 from dashscope import MultiModalConversation
 import dashscope
 
-from Fairy.tools.entity import ScreenFileInfo
+from Fairy.info_entity import ScreenFileInfo
 
 
 class ScreenIconPerception:
@@ -29,7 +29,7 @@ class ScreenIconPerception:
         logger.debug("Icon Perception task (including Icon Recognition and Icon Description) in progress...")
 
         logger.debug("Icon Recognition task in progress...")
-        image_boxs = self._det(screenshot_file_info.get_screenshot_file())
+        image_boxs = self._det(screenshot_file_info.get_screenshot_fullpath())
         logger.debug("Icon Recognition task completed.")
 
         logger.debug("Icon Description task in progress...")
@@ -44,7 +44,7 @@ class ScreenIconPerception:
 
         images = []
         for i in range(len(image_boxs)):
-            image = self._crop(screenshot_file_info.get_screenshot_file(), image_boxs[i])
+            image = self._crop(screenshot_file_info.get_screenshot_fullpath(), image_boxs[i])
             if image is not None:
                 save_path = os.path.join(icon_temp_path, f"{image_id[i]}.png")
                 image.save(save_path)

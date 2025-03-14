@@ -1,6 +1,5 @@
 import json
 
-
 class ChatClient:
 
     def __init__(self, model_infos, **kwargs):

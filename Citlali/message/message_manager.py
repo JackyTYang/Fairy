@@ -4,7 +4,7 @@ from asyncio import Queue
 from loguru import logger
 
 from ..core.worker_keeper import WorkerKeeper
-from Citlali.core.type import MessageType, ListenerType
+from ..core.type import MessageType, ListenerType
 from .channel_keeper import ChannelKeeper
 from .entity import MessageParcel
 
@@ -35,7 +35,6 @@ class MessageManager:
 
         message_parcel = MessageParcel(message, recipient, sender, message_type, reply_callback)
         await self._queue.put(message_parcel)
-
         return reply_callback if message_type is MessageType.REQUEST else None
 
     async def on_message(self, message_parcel):
@@ -45,7 +44,6 @@ class MessageManager:
                 asyncio.create_task(self._call(message_parcel))
             case MessageType.NOTIFICATION:
                 asyncio.create_task(self._notice(message_parcel))
-                await self._notice(message_parcel)
             case MessageType.RESPONSE:
                 asyncio.create_task(self._reply(message_parcel))
 

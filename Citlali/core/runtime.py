@@ -1,5 +1,5 @@
 from .worker_keeper import WorkerKeeper
-from Citlali.core.type import MessageType
+from ..core.type import MessageType
 from ..message.message_manager import MessageManager
 
 

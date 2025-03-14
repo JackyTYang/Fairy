@@ -1,21 +1,35 @@
 import asyncio
 import subprocess
+
+from loguru import logger
+
 from Citlali.core.agent import Worker
-from Fairy.tools.type import AtomicActionType
-from Fairy.utils.task_executor import TaskExecutor
+from Citlali.core.type import ListenerType
+from Citlali.core.worker import listener
+from Fairy.message_entity import EventMessage
+from Fairy.type import EventType, EventStatus
+from ..tools.action_type import AtomicActionType
+from ..utils.task_executor import TaskExecutor
 
 
 class OperationExecution(Worker):
     def __init__(self, runtime, config):
         super().__init__(runtime, "OperationExecution", "OperationExecution")
+        self.adb_path = config.adb_path
 
-        self.adb_path = config["adb_path"]
+    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
+              listen_filter=lambda message: message.event == EventType.ActionExecution and message.status == EventStatus.CREATED)
+    async def on_action_create(self, message: EventMessage, message_context):
+        logger.debug("Get action execute task in progress...")
+        await self.execute_action(message.event_content.action, message.event_content.args)
+        logger.debug("Get action execute task completed.")
+        await self.publish("app_channel", EventMessage(EventType.ActionExecution, EventStatus.DONE, message.event_content))
 
     async def execute_action(self, action: AtomicActionType, args: dict, **kwargs) -> None:
         match action:
-            case AtomicActionType.Open_App:
-                await self._start_app(args["app_name"])
-                await asyncio.sleep(2)
+            # case AtomicActionType.Open_App:
+            #     await self._start_app(args["app_name"])
+            #     await asyncio.sleep(2)
             case AtomicActionType.Tap:
                 await self._tap(args["x"], args["y"])
                 await asyncio.sleep(2)

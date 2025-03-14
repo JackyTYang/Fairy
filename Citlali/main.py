@@ -1,8 +1,8 @@
 import asyncio
 
-from core.agent import Agent
-from core.runtime import CitlaliRuntime
-from core.worker import listener
+from Citlali.core.agent import Agent
+from Citlali.core.runtime import CitlaliRuntime
+from Citlali.core.worker import listener
 from Citlali.core.type import ListenerType
 
 from loguru import logger

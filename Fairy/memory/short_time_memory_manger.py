@@ -18,10 +18,11 @@ class ShortTimeMemoryManager(Worker):
             MemoryType.ScreenPerception: [],
             MemoryType.Action: [],
             MemoryType.ActionResult: [],
+            MemoryType.KeyInfo: []
         } # 暂时只有一个短时记忆，暂未考虑多个短时记忆的情况
 
         self.memory_ready_event = {}
-        self.allow_empty_list = [MemoryType.Action, MemoryType.ActionResult]
+        self.allow_empty_list = [MemoryType.Action, MemoryType.ActionResult, MemoryType.KeyInfo]
 
     async def _get_memory(self, memory_type):
         memory = self.current_memory.get(memory_type)
@@ -76,3 +77,9 @@ class ShortTimeMemoryManager(Worker):
     async def set_action_memory(self, message: EventMessage, message_context):
         self.current_memory[MemoryType.Action].append(message.event_content)
         await self.set_memory_ready(MemoryType.Action)
+
+    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
+              listen_filter=lambda message: message.event == EventType.KeyInfoExtraction and message.status == EventStatus.DONE)
+    async def set_key_info_memory(self, message: EventMessage, message_context):
+        self.current_memory[MemoryType.KeyInfo].append(message.event_content)
+        await self.set_memory_ready(MemoryType.KeyInfo)

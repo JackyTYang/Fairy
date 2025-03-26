@@ -19,9 +19,14 @@ class Agent(Worker):
         response = await self._model_client.create(
             self._system_messages + [user_message]
         )
-        response = self.parse_response(response.content)
-        logger.debug("LLM Response: " + str(response))
-        return response
+        responses = self.parse_response(response.content)
+        if isinstance(responses, tuple):
+            logger.info("LLM Response: ")
+            for r in responses:
+                logger.info(str(r))
+        else:
+            logger.info("LLM Response: " + str(responses))
+        return responses
 
     def parse_response(self, content: str):
         ...

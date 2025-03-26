@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from typing import List, Dict
 
 from Citlali.utils.image import Image
 from PIL import Image as PILImage
@@ -38,36 +39,42 @@ class ScreenPerceptionInfo:
         return f"ScreenPerceptionInfo: {self.perception_infos}"
 
 class PlanInfo:
-    def __init__(self, thought, plan, current_sub_goal):
-        self.thought = thought
-        self.plan = plan
+    def __init__(self, plan_thought, overall_plan, current_sub_goal, current_sub_goal_execution_type):
+        self.plan_thought = plan_thought
+        self.overall_plan = overall_plan
         self.current_sub_goal = current_sub_goal
+        self.current_sub_goal_execution_type = current_sub_goal_execution_type
 
     def __str__(self):
-        return (f"Thought:{self.thought} \n"
-                f"Plan: {self.plan} \n"
-                f"CurrentSubGoal: {self.current_sub_goal} \n")
+        return (f"\n -------------PlanInfo-------------"
+                f"\n - Plan Thought:{self.plan_thought}"
+                f"\n - Plan: {self.overall_plan}"
+                f"\n - Current Sub Goal: {self.current_sub_goal}"
+                f"\n - Current Sub Goal Execution Type: {self.current_sub_goal_execution_type}"
+                f"\n -----------PlanInfo END-----------")
 
 class ActionInfo:
-    def __init__(self, thought, action:AtomicActionType, expectation, args:dict):
-        self.thought = thought
-        self.action = action
-        self.expectation = expectation
-        self.args = args
+    def __init__(self, action_thought, actions:List[Dict[str, AtomicActionType | dict]], action_expectation):
+        self.action_thought = action_thought
+        self.actions = actions
+        self.action_expectation = action_expectation
 
     def __str__(self):
-        return (f"Thought:{self.thought} \n"
-                f"Action: {self.action} \n"
-                f"Expectation: {self.expectation} \n"
-                f"Args: {self.args} \n")
+        return (f"\n -------------ActionInfo-------------"
+                f"\n - Action Thought:{self.action_thought}"
+                f"\n - Actions: {self.actions}"
+                f"\n - Action Expectation: {self.action_expectation}"
+                f"\n -----------ActionInfo END-----------")
 
 class ProgressInfo:
-    def __init__(self, outcome, error_description, progress_status):
-        self.outcome = outcome
-        self.error_description = error_description
+    def __init__(self, action_result, error_potential_causes, progress_status):
+        self.action_result = action_result
+        self.error_potential_causes = error_potential_causes
         self.progress_status = progress_status
 
     def __str__(self):
-        return (f"Outcome: {self.outcome} \n"
-                f"Error Description: {self.error_description} \n"
-                f"Progress Status: {self.progress_status} \n")
+        return (f"\n -------------ProgressInfo-------------"
+                f"\n - Action Result: {self.action_result}"
+                f"\n - Error Potential Causes: {self.error_potential_causes}"
+                f"\n - Progress Status: {self.progress_status}"
+                f"\n -----------ProgressInfo END-----------")

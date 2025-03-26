@@ -26,7 +26,12 @@ class AppExecutorAgent(Agent):
               listen_filter=lambda msg: msg.event == EventType.Plan and msg.status == EventStatus.DONE)
     async def on_execute_plan(self, message: EventMessage, message_context):
 
-        logger.debug("Execute Plan task in progress...")
+        logger.info("[Execute Plan] TASK in progress...")
+
+        # # 如果当前子目标的执行类型为0，则需要UserInteractorAgent处理，跳过
+        # if message.event_content.current_sub_goal_execution_type == "0":
+        #     logger.info("[Execute Plan] Human intervention required, executor terminated~")
+        #     return
 
         # 从ShortTimeMemoryManager获取Instruction
         memory = await self.call("ShortTimeMemoryManager", CallMessage(CallType.Memory_GET,
@@ -47,6 +52,7 @@ class AppExecutorAgent(Agent):
         )
 
         await self.publish("app_channel", EventMessage(EventType.ActionExecution, EventStatus.CREATED, event_content))
+        logger.info("[Execute Plan] TASK completed.")
 
     @staticmethod
     def build_prompt(instruction,
@@ -54,145 +60,69 @@ class AppExecutorAgent(Agent):
                      action_info_list: List[ActionInfo],
                      progress_info_list: List[ProgressInfo],
                      current_screen_perception_info: ScreenPerceptionInfo) -> str:
-        prompt = "### User Instruction ###\n"
-        prompt += f"{instruction}\n\n"
+        prompt = f"---\n" \
+                 f"- Instruction: {instruction}\n" \
+                 f"- Overall Plan: {plan_info.overall_plan}\n" \
+                 f"- History Progress Status: {progress_info_list[-1].progress_status if len(progress_info_list) > 0 else 'No progress yet.'}\n" \
+                 f"- Current Sub-goal: {plan_info.current_sub_goal}\n"
 
-        prompt += "### Overall Plan ###\n"
-        prompt += f"{plan_info.plan}\n\n"
+        prompt += f"---\n"
+        prompt += current_screen_perception_info.perception_infos.get_screen_info_note_prompt("The attached image is a screenshots of your phone to show the current state") # Call this function to supplement the prompt "Size of the Image and Additional Information".
+        prompt += f"\n"
 
-        prompt += "### Progress Status ###\n"
-        if len(progress_info_list) > 0:
-            prompt += f"{progress_info_list[-1].progress_status}\n\n"
-        else:
-            prompt += "No progress yet.\n\n"
+        prompt += current_screen_perception_info.perception_infos.get_screen_info_prompt() # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
 
-        prompt += "### Current Subgoal ###\n"
-        prompt += f"{plan_info.current_sub_goal}\n\n"
-
-        prompt += "### Screen Information ###\n"
-        prompt += (
-            f"The attached image is a screenshot showing the current state of the phone. "
-            f"Its width and height are {current_screen_perception_info.perception_infos.width} and {current_screen_perception_info.perception_infos.height} pixels, respectively.\n"
-        )
-        prompt += (
-            "To help you better understand the content in this screenshot, we have extracted positional information for the text elements and icons, including interactive elements such as search bars. "
-            "The format is: (coordinates; content). The coordinates are [x, y], where x represents the horizontal pixel position (from left to right) "
-            "and y represents the vertical pixel position (from top to bottom)."
-        )
-        prompt += "The extracted information is as follows:\n"
-
-        for clickable_info in current_screen_perception_info.perception_infos.infos:
-            if clickable_info['text'] != "" and clickable_info['text'] != "icon: None" and clickable_info[
-                'coordinates'] != (0, 0):
-                prompt += f"{clickable_info['coordinates']}; {clickable_info['text']}\n"
+        prompt += "TIPS: Search bar is often a long, rounded rectangle. If no search bar is presented and you want to perform a search, you may need to tap a search button, which is commonly represented by a magnifying glass.\n"
         prompt += "\n"
-        prompt += (
-            "Note that a search bar is often a long, rounded rectangle. If no search bar is presented and you want to perform a search, you may need to tap a search button, which is commonly represented by a magnifying glass.\n"
-            "Also, the information above might not be entirely accurate. "
-            "You should combine it with the screenshot to gain a better understanding."
-        )
-        prompt += "\n\n"
-
-        prompt += "### Keyboard status ###\n"
-        if current_screen_perception_info.perception_infos.keyboard_status:
-            prompt += "The keyboard has been activated and you can type."
-        else:
-            prompt += "The keyboard has not been activated and you can\'t type."
-        prompt += "\n\n"
 
         prompt += "---\n"
-        prompt += "Carefully examine all the information provided above and decide on the next action to perform. If you notice an unsolved error in the previous action, think as a human user and attempt to rectify them. You must choose your action from one of the atomic actions or the shortcuts. The shortcuts are predefined sequences of actions that can be used to speed up the process. Each shortcut has a precondition specifying when it is suitable to use. If you plan to use a shortcut, ensure the current phone state satisfies its precondition first.\n\n"
-
-        prompt += "#### Atomic Actions ####\n"
+        prompt += "Carefully examine all the information provided above and decide on the next action to perform. If you notice an unsolved error in the previous action, think as a human user and attempt to rectify them. You must choose your action from ONE or MORE of the atomic actions.\n\n"
+        prompt += "- Atomic Actions: \n"
         prompt += "The atomic action functions are listed in the format of `name(arguments): description` as follows:\n"
 
-        info = {
-            "width": current_screen_perception_info.perception_infos.width,
-            "height": current_screen_perception_info.perception_infos.height,
-        }
-        if current_screen_perception_info.perception_infos.keyboard_status:
-            for action, value in ATOMIC_ACTION_SIGNITURES.items():
-                prompt += f"- {action}({', '.join(value['arguments'])}): {value['description'](info)}\n"
-        else:
-            for action, value in ATOMIC_ACTION_SIGNITURES.items():
-                if action != AtomicActionType.Type:
-                    prompt += f"- {action}({', '.join(value['arguments'])}): {value['description'](info)}\n"
-            prompt += "NOTE: Unable to type. The keyboard has not been activated. To type, please activate the keyboard by tapping on an input box or using a shortcut, which includes tapping on an input box first.”\n"
+        for action, value in ATOMIC_ACTION_SIGNITURES.items():
+            if current_screen_perception_info.perception_infos.keyboard_status and action == AtomicActionType.Type:
+                continue # Skip the Type action if the keyboard is not activated
+            prompt += f"- {action}({', '.join(value['arguments'])}): {value['description']}\n"
+        if not current_screen_perception_info.perception_infos.keyboard_status:
+            prompt += "NOTE: Unable to type. The keyboard has not been activated. To type, please activate the keyboard by tapping on an input box, which includes tapping on an input box first.”\n"
 
-        prompt += "### Latest Action History ###\n"
-        # if message.action_history != []:
+        prompt += f"---\n" \
+                  f"- Latest Action History: \n"
         if len(action_info_list) > 0:
-            prompt += "Recent actions you took previously and whether they were successful:\n"
-            # num_actions = min(5, len(message.action_history))
-            # latest_actions = message.action_history[-num_actions:]
-            # latest_summary = message.summary_history[-num_actions:]
-            # latest_outcomes = message.action_outcomes[-num_actions:]
-            # error_descriptions = message.error_descriptions[-num_actions:]
-
-            action_log_strs = []
+            prompt += "(Recent 5 actions you took previously and whether they were successful)\n"
             for progress_info, action_info in zip(progress_info_list, action_info_list):
-                if progress_info.outcome == "A":
-                    action_log_str = f"Action: {action_info.action} | Description: {action_info.expectation} | Outcome: Successful\n"
-                else:
-                    action_log_str = f"Action: {action_info.action} | Description: {action_info.expectation} | Outcome: Failed | Feedback: {progress_info.error_description}\n"
+                action_log_str = f"Action(s): {action_info.actions} | " \
+                                 f"Action Description: {action_info.action_expectation} | " \
+                                 f"Action Result: { 'Successful' if progress_info.action_result == 'A' else 'Partial Successful'  if progress_info.action_result == 'B' else 'Failure'} | "
+                if progress_info.action_result == "C" or progress_info.action_result == "D":
+                    action_log_str += f"Error Potential Causes: {progress_info.error_potential_causes} | "
+                action_log_str += "\n"
                 prompt += action_log_str
-                action_log_strs.append(action_log_str)
-
-            if progress_info_list[-1].outcome == "C" and "Tap" in action_log_strs[-1] and "Tap" in action_log_strs[-2]:
-                prompt += "\nHINT: If multiple Tap actions failed to make changes to the screen, consider using a \"Swipe\" action to view more content or use another way to achieve the current subgoal."
-
-            # for act, summ, outcome, err_des in zip(latest_actions, latest_summary, latest_outcomes, error_descriptions):
-            #     if outcome == "A":
-            #         action_log_str = f"Action: {act} | Description: {summ} | Outcome: Successful\n"
-            #     else:
-            #         action_log_str = f"Action: {act} | Description: {summ} | Outcome: Failed | Feedback: {err_des}\n"
-            #     prompt += action_log_str
-            #     action_log_strs.append(action_log_str)
-            # if latest_outcomes[-1] == "C" and "Tap" in action_log_strs[-1] and "Tap" in action_log_strs[-2]:
-            #     prompt += "\nHINT: If multiple Tap actions failed to make changes to the screen, consider using a \"Swipe\" action to view more content or use another way to achieve the current subgoal."
-
+            prompt += "TIPS: If multiple Tap actions failed to make changes to the screen, consider using a \"Swipe\" action to view more content or use another way to achieve the current subgoal."
             prompt += "\n"
         else:
             prompt += "No actions have been taken yet.\n\n"
 
         prompt += "---\n"
-        prompt += "Provide your output in the following format, which contains three parts:\n"
-        prompt += "### Thought ###\n"
-        prompt += "Provide a detailed explanation of your rationale for the chosen action. IMPORTANT: If you decide to use a shortcut, first verify that its precondition is met in the current phone state. For example, if the shortcut requires the phone to be at the Home screen, check whether the current screenshot shows the Home screen. If not, perform the appropriate atomic actions instead.\n\n"
-
-        prompt += "### Action ###\n"
-        prompt += "Choose only one action or shortcut from the options provided. IMPORTANT: Do NOT return invalid actions like null or stop. Do NOT repeat previously failed actions.\n"
-        prompt += "Use shortcuts whenever possible to expedite the process, but make sure that the precondition is met.\n"
-        prompt += "You must provide your decision using a valid JSON format specifying the name and arguments of the action. For example, if you choose to tap at position (100, 200), you should write {\"name\":\"Tap\", \"arguments\":{\"x\":100, \"y\":100}}. If an action does not require arguments, such as Home, fill in null to the \"arguments\" field. Ensure that the argument keys match the action function's signature exactly. Please ensure that the output can be directly loaded by the Python json.load() function\n\n"
-
-        prompt += "### Description ###\n"
-        prompt += "A brief description of the chosen action and the expected outcome."
+        prompt += "Please provide a JSON with 3 keys, which are interpreted as follows:\n"\
+                  "- action_thought: A detailed explanation of your rationale for the chosen action.\n"\
+                  "- actions: Choose ONE or MORE action from the options provided. IMPORTANT: Do NOT return invalid actions like null or stop. Do NOT repeat previously failed actions.The decided action must be provided in a valid JSON format and should be an array containing a sequence of actions, specifying the name and parameters of the action. For example, if you decide to tap on position (100, 200) first, you should first put in the array \{\"name\":\"Tap\", \"arguments\":{\"x\":100, \"y\":100}}. If an action does not require parameters, such as 'Wait', fill in the 'Parameters' field with null. IMPORTANT: MAKE SURE the parameter key matches the signature of the action function exactly. MAKE SURE that the order of the actions in the array is the same as the order in which you want them to be executed. MAKE SURE this JSON can be loaded correctly by json.load().\n"\
+                  f"- action_expectation: A brief description of the expected results of the selected action(s).\n"\
+                  f"Make sure this JSON can be loaded correctly by json.load().\n" \
+                  f"\n"
         return prompt
 
     def parse_response(self, response: str) -> ActionInfo | None:
-        thought = (response.split("### Thought ###")[-1].split("### Action ###")[0]
-                   .replace("\n", " ").replace("  ", " ").strip())
-        action = (response.split("### Action ###")[-1].split("### Description ###")[0]
-                  .replace("\n", " ").replace("  ", " ").strip())
-        expectation = (response.split("### Description ###")[-1]
-                       .replace("\n", " ").replace("  ", " ").strip())
 
-        print(action)
-        if "json" in action:
-            action = re.search(r"```json\s*(.*?)\s*```", action, re.DOTALL).group(1)
-        print(action)
-
-        action_object = json.loads(action)
-        action, arguments = action_object["name"], action_object["arguments"]
-
-        # execute atomic action
-        try:
-            action = AtomicActionType(action)
-            return ActionInfo(thought, action, expectation, arguments)
-        except ValueError:
-            if action.lower() in ["null", "none", "finish", "exit", "stop"]:
-                print("Agent choose to finish the task. Action: ", action)
-                return ActionInfo(thought, AtomicActionType.Stop, expectation, {})
-            else:
-                print("Error! Invalid action name: ", action)
+        if "json" in response:
+            response = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL).group(1)
+        response_jsonobject = json.loads(response)
+        # check if the actions are valid
+        for action in response_jsonobject['actions']:
+            if action['name'] not in [action_type.value for action_type in AtomicActionType]:
+                print(f"Error! Invalid action name: {action['name']}")
                 return None
+
+        action_info = ActionInfo(response_jsonobject['action_thought'], response_jsonobject['actions'], response_jsonobject['action_expectation'])
+        return action_info

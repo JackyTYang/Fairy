@@ -6,6 +6,7 @@ class EventType(Enum):
     ActionExecution = 2
     ScreenPerception = 3
     Reflection = 4
+    KeyInfoExtraction = 5
 
 class EventStatus(Enum):
     CREATED = 0
@@ -21,3 +22,4 @@ class MemoryType(Enum):
     Action = 2
     ActionResult = 3
     ScreenPerception = 4
+    KeyInfo = 5

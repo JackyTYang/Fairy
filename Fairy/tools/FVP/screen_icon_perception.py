@@ -26,13 +26,13 @@ class ScreenIconPerception:
         self.caption_model_api_key = caption_model_api_key
 
     def get_icon_perception(self, screenshot_file_info: ScreenFileInfo):
-        logger.debug("Icon Perception task (including Icon Recognition and Icon Description) in progress...")
+        logger.info("[Icon Perception] TASK (including [Icon Recognition] and pIcon Description]) in progress...")
 
-        logger.debug("Icon Recognition task in progress...")
+        logger.info("[Icon Recognition] TASK in progress...")
         image_boxs = self._det(screenshot_file_info.get_screenshot_fullpath())
-        logger.debug("Icon Recognition task completed.")
+        logger.info("[Icon Recognition] TASK completed.")
 
-        logger.debug("Icon Description task in progress...")
+        logger.info("[Icon Description] TASK in progress...")
         image_id = range(len(image_boxs))
         icon_perception_infos = []
         for i in range(len(image_boxs)):
@@ -61,12 +61,13 @@ class ScreenIconPerception:
                 images[i] = os.path.join(icon_temp_path, images[i])
             icon_map = self._generate_api(images, prompt)
 
-            logger.debug("Icon Description task completed.")
+            logger.info("[Icon Description] TASK completed.")
 
             for i, j in zip(image_id, range(1, len(image_id) + 1)):
                 if icon_map.get(j):
                     icon_perception_infos[i]['text'] = "icon: " + icon_map[j]
 
+            logger.info("[Icon Perception] TASK (including [Icon Recognition] and pIcon Description]) completed.")
         return icon_perception_infos
 
     def _crop(self, image, box):

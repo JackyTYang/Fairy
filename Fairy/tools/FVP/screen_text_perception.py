@@ -15,7 +15,7 @@ class ScreenTextPerception:
         self.ocr_recognition = pipeline(Tasks.ocr_recognition, model=ocr_recognition_model)
 
     def get_text_perception(self, screenshot_file_info):
-        logger.debug("Text Perception task (including Text Detection and Text Recognition) in progress...")
+        logger.info("[Text Perception] TASK (including [Text Detection] and [Text Recognition]) in progress...")
 
         image = cv2.imread(screenshot_file_info.get_screenshot_fullpath())
         text, coordinates = self._ocr(image)
@@ -35,11 +35,11 @@ class ScreenTextPerception:
         text_data = []
         coordinate = []
 
-        logger.debug("Text Detection task in progress...")
+        logger.info("[Text Detection] TASK in progress...")
         det_result = self.ocr_detection(image)['polygons']
-        logger.debug("Text Detection task completed.")
+        logger.info("[Text Detection] TASK completed.")
 
-        logger.debug("Text Recognition task in progress...")
+        logger.info("[Text Recognition] TASK in progress...")
         for i in range(det_result.shape[0]):
             pts = self._order_point(det_result[i])
             image_crop = self._crop_image(image, pts)
@@ -56,7 +56,8 @@ class ScreenTextPerception:
             coordinate.append(box)
 
         else:
-            logger.debug("Text Recognition task completed.")
+            logger.info("[Text Recognition] TASK completed.")
+            logger.info("[Text Perception] TASK (including [Text Detection] and [Text Recognition]) completed.")
             return text_data, coordinate
 
     @staticmethod

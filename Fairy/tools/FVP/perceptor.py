@@ -1,4 +1,6 @@
 # --!-- This module refers to the open-source implementation of the MobileAgent series work
+from copy import deepcopy
+
 from .entity import FineGrainedVisualPerceptionInfo
 from .screen_icon_perception import ScreenIconPerception
 from .screen_text_perception import ScreenTextPerception
@@ -34,6 +36,7 @@ class FineGrainedVisualPerceptor:
         return output_screenshot_file_info, FineGrainedVisualPerceptionInfo(width, height, perception_infos)
 
     def draw_coordinates_on_image(self, screenshot_file_info, coordinates):
+        screenshot_file_info = deepcopy(screenshot_file_info)
         image = Image.open(screenshot_file_info.get_screenshot_fullpath())
         draw = ImageDraw.Draw(image)
         point_size = 10

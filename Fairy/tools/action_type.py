@@ -1,53 +1,48 @@
 from enum import Enum
 
 class AtomicActionType(Enum):
-    # Open_App = "Open_App"
     Tap = "Tap"
     Swipe = "Swipe"
     Type = "Type"
-    Enter = "Enter"
-    Switch_App = "Switch_App"
-    Back = "Back"
-    Home = "Home"
+    KeyEvent = "KeyEvent"
     Wait = "Wait"
-    Stop = "Stop"
+    Finish = "Finish"
 
 
 ATOMIC_ACTION_SIGNITURES = {
-    # AtomicActionType.Open_App: {
-    #     "arguments": ["app_name"],
-    #     "description": lambda info: "If the current screen is Home or App screen, you can use this action to open the app named \"app_name\" on the visible on the current screen."
-    # },
     AtomicActionType.Tap: {
         "arguments": ["x", "y"],
-        "description": lambda info: "Tap the position (x, y) in current screen."
+        "description": "Tap the position (x, y) in current screen."
+                       "You can use it to click on a button (with an icon or text), a link or to check an option, an input box (for typing) in general.",
+        "command": lambda args: f"shell input tap {args['x']} {args['y']}"
     },
     AtomicActionType.Swipe: {
-        "arguments": ["x1", "y1", "x2", "y2"],
-        "description": lambda info: f"Swipe from position (x1, y1) to position (x2, y2). To swipe up or down to review more content, you can adjust the y-coordinate offset based on the desired scroll distance. For example, setting x1 = x2 = {int(0.5 * info['width'])}, y1 = {int(0.5 * info['height'])}, and y2 = {int(0.1 * info['height'])} will swipe upwards to review additional content below. To swipe left or right in the App switcher screen to choose between open apps, set the x-coordinate offset to at least {int(0.5 * info['width'])}."
+        "arguments": ["x1", "y1", "x2", "y2", "duration"],
+        "description": "Swipe from position (x1, y1) to position (x2, y2) OR Long Press position (x,y) when x1 = x2 = x, y1 = y2 = y. "
+                       "You can use it to swipe up / down (x does not move to adjust y) or left / right (y does not move to adjust x) to see more content if a scrolling list exists."
+                       "Swipe up/down usually moves half the height of the screen, and left/right passes move half the width of the screen."
+                       "You can use it to long-press to select an element (e.g. an image, a file, etc.), especially when explicit checkboxes don't exist or the Tap can't select an element."
+                       "In light sweeps, duration can generally be set to 500, while in long presses, duration generally needs to be greater than 2500",
+        "command": lambda args: f"shell input swipe {args['x1']} {args['y1']} {args['x2']} {args['y2']} {args['duration']}"
     },
     AtomicActionType.Type: {
         "arguments": ["text"],
-        "description": lambda info: "Type the \"text\" in an input box."
+        "description": "Type the \"text\" in an input box.",
+        "command": lambda args: f" shell am broadcast -a ADB_INPUT_TEXT --es msg \"{args['text']}\""
     },
-    AtomicActionType.Enter: {
-        "arguments": [],
-        "description": lambda info: "Press the Enter key after typing (useful for searching)."
-    },
-    AtomicActionType.Switch_App: {
-        "arguments": [],
-        "description": lambda info: "Show the App switcher for switching between opened apps."
-    },
-    AtomicActionType.Back: {
-        "arguments": [],
-        "description": lambda info: "Return to the previous state."
-    },
-    AtomicActionType.Home: {
-        "arguments": [],
-        "description": lambda info: "Return to home page."
+    AtomicActionType.KeyEvent: {
+        "arguments": ["type"],
+        "description": "Sends keystroke events, which are of the following types:"
+                       "- KEYCODE_BACK : Return to the previous state;"
+                       "- KEYCODE_HOME : Return to home page;",
+        "command": lambda args: f"shell input keyevent {args['type']}"
     },
     AtomicActionType.Wait: {
+        "arguments": ["wait_time"],
+        "description": "Wait for \"wait_time\" seconds to give more time for loading."
+    },
+    AtomicActionType.Finish: {
         "arguments": [],
-        "description": lambda info: "Wait for 10 seconds to give more time for a page loading."
+        "description": "Called after completing all the requirements in the user's Instruction"
     }
 }

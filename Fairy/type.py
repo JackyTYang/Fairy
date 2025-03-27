@@ -7,6 +7,8 @@ class EventType(Enum):
     ScreenPerception = 3
     Reflection = 4
     KeyInfoExtraction = 5
+    UserInteraction = 6
+    UserChat = 7
 
 class EventStatus(Enum):
     CREATED = 0
@@ -23,3 +25,4 @@ class MemoryType(Enum):
     ActionResult = 3
     ScreenPerception = 4
     KeyInfo = 5
+    UserInteraction = 6

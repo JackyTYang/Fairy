@@ -8,11 +8,13 @@ from Citlali.models.openai.client import OpenAIChatClient
 from Fairy.agents.app_executor_agent import AppExecutorAgent
 from Fairy.agents.app_key_info_extractor_agent import KeyInfoExtractorAgent
 from Fairy.agents.app_planner_agent import AppPlannerAgent
+from Fairy.agents.user_interactor_agent import UserInteractorAgent
 from Fairy.fairy_config import Config
 from Fairy.memory.short_time_memory_manger import ShortTimeMemoryManager
 from Fairy.message_entity import EventMessage
 from Fairy.tools.action_executor import ActionExecutor
 from Fairy.tools.screen_perceptor import ScreenPerceptor
+from Fairy.tools.user_chat import UserChat
 from Fairy.type import EventType, EventStatus
 from Fairy.utils.task_executor import TaskExecutor
 
@@ -61,6 +63,8 @@ class FairyCore:
         runtime.register(lambda: ActionExecutor(runtime, self._config))
         runtime.register(lambda: ScreenPerceptor(runtime, self._config))
         runtime.register(lambda: KeyInfoExtractorAgent(runtime, self._model_client))
+        runtime.register(lambda: UserInteractorAgent(runtime, self._model_client))
+        runtime.register(lambda: UserChat(runtime))
         runtime.register(lambda: ShortTimeMemoryManager(runtime))
 
         await runtime.publish("app_channel", EventMessage(EventType.Plan, EventStatus.CREATED, instruction))

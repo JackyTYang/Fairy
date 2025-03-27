@@ -39,18 +39,18 @@ class ScreenPerceptionInfo:
         return f"ScreenPerceptionInfo: {self.perception_infos}"
 
 class PlanInfo:
-    def __init__(self, plan_thought, overall_plan, current_sub_goal, current_sub_goal_execution_type):
+    def __init__(self, plan_thought, overall_plan, current_sub_goal, user_interaction_type):
         self.plan_thought = plan_thought
         self.overall_plan = overall_plan
         self.current_sub_goal = current_sub_goal
-        self.current_sub_goal_execution_type = current_sub_goal_execution_type
+        self.user_interaction_type = user_interaction_type
 
     def __str__(self):
         return (f"\n -------------PlanInfo-------------"
                 f"\n - Plan Thought:{self.plan_thought}"
                 f"\n - Plan: {self.overall_plan}"
                 f"\n - Current Sub Goal: {self.current_sub_goal}"
-                f"\n - Current Sub Goal Execution Type: {self.current_sub_goal_execution_type}"
+                f"\n - User Interaction Type: {self.user_interaction_type}"
                 f"\n -----------PlanInfo END-----------")
 
 class ActionInfo:
@@ -78,3 +78,18 @@ class ProgressInfo:
                 f"\n - Error Potential Causes: {self.error_potential_causes}"
                 f"\n - Progress Status: {self.progress_status}"
                 f"\n -----------ProgressInfo END-----------")
+
+class UserInteractionInfo:
+    def __init__(self, interaction_status, interaction_thought, action_instruction, user_response):
+        self.interaction_status = interaction_status
+        self.interaction_thought = interaction_thought
+        self.action_instruction = action_instruction
+        self.user_response = user_response
+
+    def __str__(self):
+        return (f"\n -------------UserInteractionInfo-------------"
+                f"\n - Interaction Status: {self.interaction_status}"
+                f"\n - Interaction Thought: {self.interaction_thought}"
+                f"\n - Action Instruction: {self.action_instruction}"
+                f"\n - User Response: {self.user_response}"
+                f"\n -----------UserInteractionInfo END-----------")

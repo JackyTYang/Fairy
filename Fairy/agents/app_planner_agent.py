@@ -7,7 +7,7 @@ from Citlali.core.agent import Agent
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
-from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenPerceptionInfo, ActionInfo
+from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenPerceptionInfo, ActionInfo, UserInteractionInfo
 from Fairy.message_entity import EventMessage, CallMessage
 from Fairy.type import EventType, EventStatus, CallType, MemoryType
 
@@ -43,8 +43,8 @@ class AppPlannerAgent(Agent):
         self.init_plan = False
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.ScreenPerception and msg.status == EventStatus.DONE)
-    async def on_plan_next(self, message:EventMessage , message_context):
+              listen_filter=lambda msg: (msg.event == EventType.ScreenPerception or msg.event == EventType.UserInteraction) and msg.status == EventStatus.DONE)
+    async def on_plan_next(self, message: EventMessage, message_context):
         if self.init_plan:
             return
 
@@ -62,7 +62,7 @@ class AppPlannerAgent(Agent):
                 # ProgressInfoList can be empty if this is the first reflection
                 memory[MemoryType.ActionResult][-1] if len(memory[MemoryType.ActionResult]) > 0 else None, # ProgressInfo
                 memory[MemoryType.ScreenPerception][-2], # PreviousScreenPerceptionInfo
-                message.event_content  # CurrentScreenPerceptionInfo
+                message.event_content if message.event == EventType.ScreenPerception else memory[MemoryType.ScreenPerception][-1] # CurrentScreenPerceptionInfo
             ),
             [
                 memory[MemoryType.ScreenPerception][-2].screenshot_file_info.get_screenshot_Image_file(), # PreviousScreenImageFile
@@ -87,17 +87,19 @@ class AppPlannerAgent(Agent):
 
     @staticmethod
     def build_init_prompt(instruction) -> str:
-        prompt = f"- Instruction: {instruction}\n\n"
+        prompt = f"- Instruction: {instruction}\n"\
+                 f"\n"
 
         prompt += f"---\n"\
                   f"Think step by step and make an high-level plan to achieve the user's instruction. If the request is complex, break it down into sub-goals. If the request involves exploration, include concrete sub-goals to quantify the investigation steps. The screenshot displays the starting state of the phone.\n"\
                   f"\n"
 
-        prompt += f"Please provide a JSON with 3 keys, which are interpreted as follows:\n"\
+        prompt += f"---\n"\
+                  f"Please provide a JSON with 4 keys, which are interpreted as follows:\n"\
                   f"- plan_thought: A detailed explanation of your rationale for the plan and subgoals.\n"\
                   f"- overall_plan: Consisting of multiple sub-goals, which need to be prefixed with a numerical number, e.g.'1.first sub-goal;2.second sub-goal;...'\n"\
                   f"- current_sub_goal: The first subgoal you should work on.\n" \
-                  f"- current_sub_goal_execution_type: Please use 1 to indicate." \
+                  f"- user_interaction_type: Please use 0 to indicate." \
                   f"Make sure this JSON can be loaded correctly by json.load().\n" \
                   f"\n"
         return prompt
@@ -126,30 +128,36 @@ class AppPlannerAgent(Agent):
         prompt += f"---\n"\
                   f"- Instruction: {instruction}\n"\
                   f"- Overall Plan: {plan_info.overall_plan}\n"\
-                  f"- History Progress Status: {progress_info.progress_status if progress_info is not None else 'No progress yet.'}\n"\
-                  f"Please follow the steps below to perform the action:\n"\
-                  f"1. Carefully examine the screenshots and screen information before and after the action provided above to determine which of the following resulted from this action:\n"\
-                  f"- A: Successful, with results meeting expectations and fully accomplishing the sub-goal;\n"\
-                  f"- B: Partial Successful, where the result was as expected but did not fully accomplish the sub-goal. For example, all options should be selected, but currently only some options are selected;\n"\
-                  f"- C: Failure, the result is incorrect and an attempt to fall back to the previous state is required;\n"\
+                  f"- History Progress Status: {progress_info.progress_status if progress_info is not None else 'No progress yet.'}\n" \
+                  f"\n" \
+                  f"Please follow the steps below to perform the action:\n" \
+                  f"1. Carefully examine the screenshots and screen information before and after the action provided above to determine which of the following resulted from this action:\n" \
+                  f"- A: Successful, with results meeting expectations and fully accomplishing the sub-goal;\n" \
+                  f"- B: Partial Successful, where the result was as expected but did not fully accomplish the sub-goal. For example, all options should be selected, but currently only some options are selected;\n" \
+                  f"- C: Failure, the result is incorrect and an attempt to fall back to the previous state is required;\n" \
                   f"- D: Failure, the action was executed without producing any change.\n" \
                   f"2. If the result is A, then: update the 'History Progress Status'; mark the task as completed in the 'Overall Plan'; and determine the next 'Sub-goal' to be executed based on the plan.\n" \
-                  f"3. If the result is B, then: update the 'History Progress Status'; outline the 'Sub-goal' that should be continued next.\n"\
+                  f"3. If the result is B, then: update the 'History Progress Status'; outline the 'Sub-goal' that should be continued next.\n" \
                   f"4. If the result is C or D, then: try to explain the 'Error Potential Causes' of the failure; think step-by-step about whether the 'Overall Plan' needs to be revised to address the error; determine the next 'Sub-goal' to be executed based on the plan.\n" \
-                  f"\n"\
-                  f"5. As you consider the sub-goal, identify the type of sub-goal execution:"\
-                  f"- 0: User intervention is required for confirmation or selection, WHEN: you are performing a sensitive or dangerous operation (e.g., delete/reset); further clarification of the instruction is required from the user; and the user is required to choose between different options."\
-                  f"- 1: No user intervention is required, the executor is delivered directly to process the sub-goal."
+                  f"5. In the following cases where user interaction is required, determine whether user interaction is required next, and select 0 if no user interaction is required:\n" \
+                  f"- 1: Confirmation of sensitive or dangerous action. The sub-target contains sensitive or dangerous action that the user has not requested very explicitly in the user instruction, e.g., file deletion when the user has not instructed file deletion.\n" \
+                  f"- 2: Confirmation of irreversible action. The action is irreversible regardless of whether the user has given instruction, e.g., a file deletion that requires the user to reconfirm the action before the file is irreversibly deleted. MAKE SURE that the action is indeed irreversible.\n" \
+                  f"- 3: Choice of different options. Multiple options are presented that satisfy the user's instructions, e.g., there are multiple search results that meet the user's instruction that require further decision-making by the user.\n" \
+                  f"- 4: Further clarification of instruction. The instruction given by the user are vague, e.g., the user asks to make a phone call but does not specify a contact person.\n" \
+                  f"\n"
+
+        prompt += f"NOTE: Moving to the recycle bin is not a irreversible deletion!\n" \
+                  f"\n"
 
         prompt += f"---\n"\
-                  f"Please provide a JSON with 6 keys, which are interpreted as follows:\n"\
+                  f"Please provide a JSON with 7 keys, which are interpreted as follows:\n"\
                   f"- action_result: Please use A, B, C, and D to indicate.\n"\
                   f"- error_potential_causes: If the action_result is A or B, please fill in 'None' here. If the action_result is C or D, please describe in detail the error and the potential cause of failure.\n"\
                   f"- progress_status: If the action_result is A or B, update the progress status. If the action_result is C or D, copy the previous progress status.\n"\
                   f"- plan_thought: Explain in detail your rationale for developing or modifying the plan and sub-goals.\n"\
                   f"- overall_plan: If you need to update the plan, provide the updated plan here. Otherwise keep the current plan and copy it here.\n"\
                   f"- current_sub_goal: The next subgoal. If all subgoals have been completed, write 'Completed'.\n"\
-                  f"- current_sub_goal_execution_type: Please use 0 or 1 to indicate."\
+                  f"- user_interaction_type: Please use 0, 1, 2, 3, and 4 to indicate."\
                   f"Make sure this JSON can be loaded correctly by json.load().\n"\
                   f"\n"
 
@@ -160,7 +168,7 @@ class AppPlannerAgent(Agent):
             response = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL).group(1)
         response_jsonobject = json.loads(response)
 
-        plan_info = PlanInfo(response_jsonobject['plan_thought'], response_jsonobject['overall_plan'], response_jsonobject['current_sub_goal'], response_jsonobject['current_sub_goal_execution_type'])
+        plan_info = PlanInfo(response_jsonobject['plan_thought'], response_jsonobject['overall_plan'], response_jsonobject['current_sub_goal'], response_jsonobject['user_interaction_type'])
         if 'action_result' in response_jsonobject:
             progress_info = ProgressInfo(response_jsonobject['action_result'], response_jsonobject['error_potential_causes'],
                      response_jsonobject['progress_status'])

@@ -22,7 +22,7 @@ class KeyInfoExtractorAgent(Agent):
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
               listen_filter=lambda msg: msg.event == EventType.Plan and msg.status == EventStatus.DONE)
     async def on_key_info_extract(self, message:EventMessage , message_context):
-        logger.debug("[KeyInfoExtract] TASK in progress...")
+        logger.debug("[Extract KeyInfo] TASK in progress...")
 
         # 从ShortTimeMemoryManager获取Instruction, CurrentScreenPerception, Plan
         memory = await self.call("ShortTimeMemoryManager", CallMessage(CallType.Memory_GET, [MemoryType.Instruction, MemoryType.ActionResult, MemoryType.KeyInfo, MemoryType.ScreenPerception]))
@@ -34,7 +34,7 @@ class KeyInfoExtractorAgent(Agent):
                 message.event_content,  # PlanInfo
                 # ProgressInfoList can be empty if this is the first reflection
                 memory[MemoryType.ActionResult][-1] if len(memory[MemoryType.ActionResult]) > 0 else None, # ProgressInfo
-                memory[MemoryType.KeyInfo], # KeyInfoList
+                memory[MemoryType.KeyInfo][-1] if len(memory[MemoryType.KeyInfo]) > 0 else None, # KeyInfoList
                 memory[MemoryType.ScreenPerception][-1], # CurrentScreenPerceptionInfo
             ),
             [
@@ -44,7 +44,7 @@ class KeyInfoExtractorAgent(Agent):
 
         # 发布Plan事件
         await self.publish("app_channel", EventMessage(EventType.KeyInfoExtraction, EventStatus.DONE, key_info_extraction_event_content))
-        logger.info("[KeyInfoExtract] TASK completed.")
+        logger.info("[Extract KeyInfo] TASK completed.")
 
     @staticmethod
     def build_prompt(instruction,

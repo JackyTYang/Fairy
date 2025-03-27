@@ -15,6 +15,7 @@ class Agent(Worker):
         self._system_messages = system_messages
 
     async def request_llm(self, content: str, images: List[Image] = []):
+        # print(content)
         user_message = ChatMessage(content=[content]+images, type="UserMessage", source="user")
         response = await self._model_client.create(
             self._system_messages + [user_message]

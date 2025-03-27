@@ -28,10 +28,11 @@ class AppExecutorAgent(Agent):
 
         logger.info("[Execute Plan] TASK in progress...")
 
-        # # 如果当前子目标的执行类型为0，则需要UserInteractorAgent处理，跳过
-        # if message.event_content.current_sub_goal_execution_type == "0":
-        #     logger.info("[Execute Plan] Human intervention required, executor terminated~")
-        #     return
+        # 如果当前Plan需要用户交互，则跳过
+        print(message.event_content.user_interaction_type)
+        if message.event_content.user_interaction_type != 0:
+            logger.info("[Execute Plan] User interaction required, skipped")
+            return
 
         # 从ShortTimeMemoryManager获取Instruction
         memory = await self.call("ShortTimeMemoryManager", CallMessage(CallType.Memory_GET,
@@ -64,7 +65,8 @@ class AppExecutorAgent(Agent):
                  f"- Instruction: {instruction}\n" \
                  f"- Overall Plan: {plan_info.overall_plan}\n" \
                  f"- History Progress Status: {progress_info_list[-1].progress_status if len(progress_info_list) > 0 else 'No progress yet.'}\n" \
-                 f"- Current Sub-goal: {plan_info.current_sub_goal}\n"
+                 f"- Current Sub-goal: {plan_info.current_sub_goal}\n" \
+                 f"\n"
 
         prompt += f"---\n"
         prompt += current_screen_perception_info.perception_infos.get_screen_info_note_prompt("The attached image is a screenshots of your phone to show the current state") # Call this function to supplement the prompt "Size of the Image and Additional Information".

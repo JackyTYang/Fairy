@@ -1,13 +1,34 @@
 import asyncio
-
-from loguru import logger
-
+from enum import Enum
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import Worker, listener
-from Fairy.info_entity import UserInteractionInfo
+from Fairy.info_entity import ActionInfo, ProgressInfo
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, EventStatus, CallType, MemoryType
+from Fairy.tools.action_type import AtomicActionType
+from Fairy.type import EventType, EventStatus, CallType
+from loguru import logger
 
+class MemoryType(Enum):
+    Instruction = 0
+    Actions = 1
+    UserInteraction = 2
+    KeyInfo = 3
+
+
+class ActionMemoryType(Enum):
+    StartScreenPerception = 1
+    Plan = 2
+    Action = 3
+    ActionResult = 4
+    EndScreenPerception = 5
+
+class MemoryCallType(Enum):
+    GET_Instruction = 1
+    GET_Current_Action_Memory = 2
+    GET_Historical_Action_Memory = 3
+    GET_Is_INIT_MODE = 4
+    GET_Key_Info = 5
+    GET_Current_User_Interaction = 6
 
 class ShortTimeMemoryManager(Worker):
     def __init__(self, runtime):
@@ -18,127 +39,155 @@ class ShortTimeMemoryManager(Worker):
                 "ori": None,
                 "updated": []
             },
-            MemoryType.Plan: [],
-            MemoryType.ScreenPerception: [],
-            MemoryType.Action: [],
-            MemoryType.ActionResult: [],
-            MemoryType.KeyInfo: [],
+            MemoryType.Actions: [],
+            MemoryType.KeyInfo:[],
             MemoryType.UserInteraction: [],
+            "init_mode": False
         } # 暂时只有一个短时记忆，暂未考虑多个短时记忆的情况
 
         self.memory_ready_event = {}
-        self.allow_empty_list = [MemoryType.Action, MemoryType.ActionResult, MemoryType.KeyInfo, MemoryType.UserInteraction]
 
-    async def _get_memory(self, memory_type):
-        def _get_memory_by_type(memory_type):
-            _memory = self.current_memory.get(memory_type)
-            match memory_type:
-                case MemoryType.Instruction:
-                    if _memory["ori"] is None:
-                        return None
-                    # 如果是指令记忆，需要将用户交互后的指令加入到记忆中
-                    return _memory["ori"] + (f"Instructions added after user interaction: {','.join(_memory['updated'])}" if len(_memory["updated"]) > 0 else "")
-                case _:
-                    return _memory
+    def add_action(self):
+        self.current_memory[MemoryType.Actions].append({
+            ActionMemoryType.StartScreenPerception: None,
+            ActionMemoryType.Plan: None,
+            ActionMemoryType.Action: None,
+            ActionMemoryType.EndScreenPerception: None,
+            ActionMemoryType.ActionResult: None,
+        })
 
-        memory = _get_memory_by_type(memory_type)
-        if memory_type not in self.allow_empty_list and (memory is None or memory == []):
-            self.memory_ready_event[memory_type] = asyncio.Event()
-            # 等待记忆被提供
-            logger.debug(f"Waiting for memory {memory_type} to provide.")
-            await self.memory_ready_event[memory_type].wait()
-            self.memory_ready_event.pop(memory_type)
-            # 重新获取记忆
-            memory = _get_memory_by_type(memory_type)
-        return memory
+    async def next_action(self):
+        # 下一个Action的StartScreenPerception记忆是上一个Action的EndScreenPerception记忆
+        next_start_screen_perception = (await self._get_current_action_memory([ActionMemoryType.EndScreenPerception]))[
+            ActionMemoryType.EndScreenPerception]
+        # 新增一个Action
+        self.add_action()
+        # 设置下一个Action的StartScreenPerception记忆
+        await self._set_current_action_memory(ActionMemoryType.StartScreenPerception, next_start_screen_perception)
+
+    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
+              listen_filter=lambda message: message.event == EventType.Plan and message.status == EventStatus.CREATED)
+    async def init_action(self, message: EventMessage, message_context):
+        # 设为初始化模式
+        self.current_memory["init_mode"] = True
+        # 新增一个Action
+        self.add_action()
+        # 设置最初的用户指示
+        self.current_memory[MemoryType.Instruction]["ori"] = message.event_content
+        await self.set_memory_ready(MemoryType.Instruction)
+
+    # 当event为UserInteraction时，更新当前Instruction的记忆
+    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
+              listen_filter=lambda message: message.event == EventType.UserInteraction and message.status == EventStatus.DONE)
+    async def update_instruction_memory(self, message: EventMessage, message_context):
+        self.current_memory[MemoryType.Instruction]["updated"].append(message.event_content.user_response)
+        # 构建本次的Action
+        self.current_memory[MemoryType.Actions][-1][ActionMemoryType.Action] = ActionInfo(
+            "User Instruction", [{"name": AtomicActionType.UserInstruction}], "Get user responses."
+        )
+        self.current_memory[MemoryType.Actions][-1][ActionMemoryType.ActionResult] = ProgressInfo(
+            "A", None, None
+        )
+        # 用户询问轮，屏幕信息不发生变化
+        self.current_memory[MemoryType.Actions][-1][ActionMemoryType.EndScreenPerception] = self.current_memory[MemoryType.Actions][-1][ActionMemoryType.StartScreenPerception]
+
+    # 当event为Plan、ActionExecution、ScreenPerception、Reflection时，更新当前Action的记忆
+    @listener(ListenerType.ON_NOTIFIED, channel="app_channel", listen_filter=lambda message:(message.event == EventType.Plan or message.event == EventType.ActionExecution or message.event == EventType.ScreenPerception or message.event == EventType.Reflection) and message.status == EventStatus.DONE)
+    async def set_current_action_memory(self, message: EventMessage, message_context):
+        match message.event:
+            case EventType.Plan:
+                # 如果是初始化模式，切换到非初始化模式
+                if self.current_memory["init_mode"]:
+                    self.current_memory["init_mode"] = False
+                else:
+                    await self.next_action()
+                if message.event_content.user_interaction_type != 0:
+                    # 如果当前Plan需要用户交互，则新增新的UserInteraction
+                    self.current_memory[MemoryType.UserInteraction].append([])
+                await self._set_current_action_memory(ActionMemoryType.Plan, message.event_content)
+            case EventType.ActionExecution:
+                await self._set_current_action_memory(ActionMemoryType.Action, message.event_content)
+            case EventType.ScreenPerception:
+                # 如果是初始化模式，屏幕感知应被设置为StartScreenPerception记忆
+                if self.current_memory["init_mode"]:
+                    await self._set_current_action_memory(ActionMemoryType.StartScreenPerception, message.event_content)
+                else:
+                    await self._set_current_action_memory(ActionMemoryType.EndScreenPerception, message.event_content)
+            case EventType.Reflection:
+                await self._set_current_action_memory(ActionMemoryType.ActionResult, message.event_content)
+
+    async def _set_current_action_memory(self, memory_type, memory):
+        self.current_memory[MemoryType.Actions][-1][memory_type] = memory
+        await self.set_memory_ready(memory_type)
+
+    # 当event为KeyInfoExtraction时，更新当前KeyInfo的记忆
+    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
+              listen_filter=lambda message: message.event == EventType.KeyInfoExtraction and message.status == EventStatus.DONE)
+    async def update_key_info_memory(self, message: EventMessage, message_context):
+        self.current_memory[MemoryType.KeyInfo].append(message.event_content)
+
+    # 当event为UserChat时，更新当前KeyInfo的记忆
+    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
+              listen_filter=lambda message: message.event == EventType.UserChat and message.status == EventStatus.DONE)
+    async def update_current_user_interaction_memory(self, message: EventMessage, message_context):
+        self.current_memory[MemoryType.UserInteraction][-1].append(message.event_content)
 
     async def set_memory_ready(self, memory_type):
         if memory_type in self.memory_ready_event:
             # 通知等待记忆提供的任务
             self.memory_ready_event[memory_type].set()
 
-    @listener(ListenerType.ON_CALLED, listen_filter=lambda message: message.call == CallType.Memory_GET)
+    @listener(ListenerType.ON_CALLED, listen_filter=lambda message: message.call_type == CallType.Memory_GET)
     async def get_memory(self, message: CallMessage, message_context):
+        memory_list = {}
+        for memory_call_type in message.call_content:
+            memory = None
+            match memory_call_type:
+                case MemoryCallType.GET_Instruction:
+                    memory = await self._get_instruction_memory()
+                case MemoryCallType.GET_Is_INIT_MODE:
+                    memory = await self._get_is_init_mode()
+                case MemoryCallType.GET_Current_Action_Memory:
+                    memory = await self._get_current_action_memory(message.call_content[memory_call_type])
+                case MemoryCallType.GET_Historical_Action_Memory:
+                    memory = await self._get_historical_action_memory(message.call_content[memory_call_type])
+                case MemoryCallType.GET_Key_Info:
+                    memory = await self._get_key_info_memory()
+                case MemoryCallType.GET_Current_User_Interaction:
+                    memory = await self._get_current_user_interaction_memory()
+            memory_list[memory_call_type] = memory
+        return memory_list
+
+    async def _get_instruction_memory(self):
+        instruction_memory = self.current_memory.get(MemoryType.Instruction)
+        return (instruction_memory["ori"] + (f"Instructions added after user interaction: {','.join(instruction_memory['updated'])}" if len(
+            instruction_memory["updated"]) > 0 else "")) if instruction_memory["ori"] is not None else None
+
+    async def _get_is_init_mode(self):
+        return self.current_memory["init_mode"]
+
+    async def _get_current_action_memory(self, memory_request):
+        # 检查要求的记忆是否已经就绪
+        for memory_type in memory_request:
+            if self.current_memory[MemoryType.Actions][-1][memory_type] is None:
+                self.memory_ready_event[memory_type] = asyncio.Event()
+                logger.debug(f"Waiting for memory {memory_type} to be ready...")
+                await self.memory_ready_event[memory_type].wait()
+                logger.debug(f"Memory {memory_type} is ready.")
+                self.memory_ready_event.pop(memory_type)
+        return self.current_memory[MemoryType.Actions][-1]
+
+    async def _get_historical_action_memory(self, memory_request):
+        # 无需检查记忆是否就绪
         memory = {}
-        for memory_type in message.call_content:
-            memory[memory_type] = await self._get_memory(memory_type)
+        for memory_type in memory_request:
+            memory_num = memory_request[memory_type] + 1
+            historical_action_memories = self.current_memory[MemoryType.Actions][-memory_num:-1]
+            memory[memory_type] = [historical_action_memory[memory_type] for historical_action_memory in historical_action_memories]
         return memory
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.Plan and message.status == EventStatus.CREATED)
-    async def set_instruction_memory(self, message: EventMessage, message_context):
-        self.current_memory[MemoryType.Instruction]["ori"] = message.event_content
-        await self.set_memory_ready(MemoryType.Plan)
+    async def _get_key_info_memory(self):
+        return self.current_memory[MemoryType.KeyInfo][-1] if len(self.current_memory[MemoryType.KeyInfo]) > 0 else []
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.UserInteraction and message.status == EventStatus.DONE)
-    async def update_instruction_memory(self, message: EventMessage, message_context):
-        self.current_memory[MemoryType.Instruction]["updated"].append(message.event_content.user_response)
-
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel")
-    async def set_memory(self, message: EventMessage, message_context):
-        memory_type_conversion_list = {
-            EventType.Plan: {
-                EventStatus.DONE: MemoryType.Plan
-            },
-            EventType.ScreenPerception: {
-                EventStatus.DONE: MemoryType.ScreenPerception
-            },
-            EventType.ActionExecution: {
-                EventStatus.DONE: MemoryType.Action
-            },
-            EventType.Reflection: {
-                EventStatus.DONE: MemoryType.ActionResult
-            },
-            EventType.KeyInfoExtraction: {
-                EventStatus.DONE: MemoryType.KeyInfo
-            },
-            EventType.UserInteraction: {
-                EventStatus.DONE: MemoryType.UserInteraction
-            },
-            EventType.UserChat: {
-                EventStatus.DONE: MemoryType.UserInteraction
-            }
-        }
-        memory_type = memory_type_conversion_list.get(message.event, []).get(message.status, None)
-        if memory_type is None:
-            return
-        self.current_memory[memory_type].append(message.event_content)
-        await self.set_memory_ready(memory_type)
-    #
-    # @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-    #           listen_filter=lambda message: message.event == EventType.ScreenPerception and message.status == EventStatus.DONE)
-    # async def set_screen_perception_memory(self, message: EventMessage, message_context):
-    #     self.current_memory[MemoryType.ScreenPerception].append(message.event_content)
-    #     await self.set_memory_ready(MemoryType.ScreenPerception)
-    #
-    # @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-    #           listen_filter=lambda message: message.event == EventType.Plan and message.status == EventStatus.DONE)
-    # async def set_plan_memory(self, message: EventMessage, message_context):
-    #     self.current_memory[MemoryType.Plan].append(message.event_content)
-    #     await self.set_memory_ready(MemoryType.Plan)
-    #
-    # @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-    #           listen_filter=lambda message: message.event == EventType.Reflection and message.status == EventStatus.DONE)
-    # async def set_action_result_memory(self, message: EventMessage, message_context):
-    #     self.current_memory[MemoryType.ActionResult].append(message.event_content)
-    #     await self.set_memory_ready(MemoryType.ActionResult)
-    #
-    # @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-    #           listen_filter=lambda message: message.event == EventType.ActionExecution and message.status == EventStatus.DONE)
-    # async def set_action_memory(self, message: EventMessage, message_context):
-    #     self.current_memory[MemoryType.Action].append(message.event_content)
-    #     await self.set_memory_ready(MemoryType.Action)
-    #
-    # @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-    #           listen_filter=lambda message: message.event == EventType.KeyInfoExtraction and message.status == EventStatus.DONE)
-    # async def set_key_info_memory(self, message: EventMessage, message_context):
-    #     self.current_memory[MemoryType.KeyInfo] = message.event_content
-    #     await self.set_memory_ready(MemoryType.KeyInfo)
-    #
-    # @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-    #           listen_filter=lambda message: (message.event == EventType.UserInteraction or message.event == EventType.UserChat)
-    #           and message.status == EventStatus.DONE)
-    # async def set_user_interaction_memory(self, message: EventMessage, message_context):
-    #     self.current_memory[MemoryType.UserInteraction].append(message.event_content)
-    #     await self.set_memory_ready(MemoryType.UserInteraction)
+    async def _get_current_user_interaction_memory(self):
+        return self.current_memory[MemoryType.UserInteraction][-1]

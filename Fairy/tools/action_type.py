@@ -7,6 +7,7 @@ class AtomicActionType(Enum):
     KeyEvent = "KeyEvent"
     Wait = "Wait"
     Finish = "Finish"
+    UserInstruction = "UserInstruction"
 
 
 ATOMIC_ACTION_SIGNITURES = {

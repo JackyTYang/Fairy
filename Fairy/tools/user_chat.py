@@ -14,7 +14,7 @@ class UserChat(Worker):
               listen_filter=lambda message: message.event == EventType.UserChat and message.status == EventStatus.CREATED)
     async def on_action_create(self, message: EventMessage, message_context):
         logger.debug("Interacting with the user for further instruction...")
-        user_response = input(message.event_content.action_instruction)
+        user_response = input(message.event_content.action_instruction+"\n")
         logger.debug(f"Further instructions have been obtained. Instruction：{user_response}")
 
         message.event_content.user_response = user_response

@@ -8,10 +8,10 @@ from Citlali.core.agent import Agent
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
-from Citlali.utils.image import Image
 from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenPerceptionInfo, ActionInfo
+from Fairy.memory.short_time_memory_manger import ActionMemoryType, MemoryCallType
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventStatus, EventType, CallType, MemoryType
+from Fairy.type import EventStatus, EventType, CallType
 from Fairy.tools.action_type import ATOMIC_ACTION_SIGNITURES, AtomicActionType
 
 
@@ -34,22 +34,31 @@ class AppExecutorAgent(Agent):
             logger.info("[Execute Plan] User interaction required, skipped")
             return
 
-        # 从ShortTimeMemoryManager获取Instruction
-        memory = await self.call("ShortTimeMemoryManager", CallMessage(CallType.Memory_GET,
-                                                                       [MemoryType.Instruction, MemoryType.Action,
-                                                                        MemoryType.ActionResult,
-                                                                        MemoryType.ScreenPerception]))
-        memory = await memory
+        # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, StartScreenPerception)\Historical Action Memory (Action, ActionResult)\KeyInfo
+        memory = await (await self.call(
+            "ShortTimeMemoryManager",
+            CallMessage(CallType.Memory_GET,{
+                MemoryCallType.GET_Instruction:None,
+                MemoryCallType.GET_Current_Action_Memory:[ActionMemoryType.Plan, ActionMemoryType.StartScreenPerception],
+                MemoryCallType.GET_Historical_Action_Memory:{ActionMemoryType.Action:5, ActionMemoryType.ActionResult:5},
+                MemoryCallType.GET_Key_Info:None
+            })
+        ))
+        instruction_memory = memory[MemoryCallType.GET_Instruction]
+        current_action_memory = memory[MemoryCallType.GET_Current_Action_Memory]
+        historical_action_memory = memory[MemoryCallType.GET_Historical_Action_Memory]
+        key_info_memory = memory[MemoryCallType.GET_Key_Info]
 
         event_content = await self.request_llm(
             self.build_prompt(
-                memory[MemoryType.Instruction],  # Instruction
-                message.event_content,  # PlanInfo
-                memory[MemoryType.Action][-5:],  # ActionInfoList
-                memory[MemoryType.ActionResult][-5:],  # ProgressInfoList
-                memory[MemoryType.ScreenPerception][-1]  # CurrentScreenPerceptionInfo
+                instruction_memory,
+                current_action_memory[ActionMemoryType.Plan],
+                current_action_memory[ActionMemoryType.StartScreenPerception],
+                historical_action_memory[ActionMemoryType.Action],
+                historical_action_memory[ActionMemoryType.ActionResult],
+                key_info_memory,
             ),
-            [memory[MemoryType.ScreenPerception][-1].screenshot_file_info.get_screenshot_Image_file()]
+            [current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file()]
         )
 
         await self.publish("app_channel", EventMessage(EventType.ActionExecution, EventStatus.CREATED, event_content))
@@ -58,14 +67,15 @@ class AppExecutorAgent(Agent):
     @staticmethod
     def build_prompt(instruction,
                      plan_info: PlanInfo,
+                     current_screen_perception_info: ScreenPerceptionInfo,
                      action_info_list: List[ActionInfo],
                      progress_info_list: List[ProgressInfo],
-                     current_screen_perception_info: ScreenPerceptionInfo) -> str:
+                     key_infos: list) -> str:
         prompt = f"---\n" \
                  f"- Instruction: {instruction}\n" \
                  f"- Overall Plan: {plan_info.overall_plan}\n" \
-                 f"- History Progress Status: {progress_info_list[-1].progress_status if len(progress_info_list) > 0 else 'No progress yet.'}\n" \
                  f"- Current Sub-goal: {plan_info.current_sub_goal}\n" \
+                 f" - Key Information Record (Excluding Current Screen): {key_infos}\n" \
                  f"\n"
 
         prompt += f"---\n"

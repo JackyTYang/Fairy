@@ -6,9 +6,10 @@ class EventType(Enum):
     ActionExecution = 2
     ScreenPerception = 3
     Reflection = 4
-    KeyInfoExtraction = 5
-    UserInteraction = 6
-    UserChat = 7
+    NextAction = 5
+    KeyInfoExtraction = 6
+    UserInteraction = 7
+    UserChat = 8
 
 class EventStatus(Enum):
     CREATED = 0
@@ -17,12 +18,3 @@ class EventStatus(Enum):
 
 class CallType(Enum):
     Memory_GET = 1
-
-class MemoryType(Enum):
-    Instruction = 0
-    Plan = 1
-    Action = 2
-    ActionResult = 3
-    ScreenPerception = 4
-    KeyInfo = 5
-    UserInteraction = 6

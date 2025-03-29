@@ -8,9 +8,10 @@ from Citlali.core.agent import Agent
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
-from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenPerceptionInfo, ActionInfo, UserInteractionInfo
+from Fairy.info_entity import PlanInfo, ScreenPerceptionInfo, UserInteractionInfo
+from Fairy.memory.short_time_memory_manger import MemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, EventStatus, CallType, MemoryType
+from Fairy.type import EventType, EventStatus, CallType
 
 
 class UserInteractorAgent(Agent):
@@ -36,31 +37,36 @@ class UserInteractorAgent(Agent):
     async def _on_user_interact(self, message: EventMessage, message_context):
         logger.info("[Interact With User] TASK in progress...")
 
-        # 从ShortTimeMemoryManager获取CurrentScreenPerception
-        memory = await self.call("ShortTimeMemoryManager", CallMessage(CallType.Memory_GET, [MemoryType.Instruction,MemoryType.Plan,MemoryType.ActionResult,MemoryType.KeyInfo,MemoryType.UserInteraction,MemoryType.ScreenPerception]))
-        memory = await memory
+        # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, StartScreenPerception)\Historical Action Memory (Action, ActionResult)\KeyInfo
+        memory = await (await self.call(
+            "ShortTimeMemoryManager",
+            CallMessage(CallType.Memory_GET,{
+                MemoryCallType.GET_Instruction:None,
+                MemoryCallType.GET_Current_Action_Memory:[ActionMemoryType.Plan, ActionMemoryType.StartScreenPerception],
+                MemoryCallType.GET_Key_Info:None,
+                MemoryCallType.GET_Current_User_Interaction: None
+            })
+        ))
+        instruction_memory = memory[MemoryCallType.GET_Instruction]
+        current_action_memory = memory[MemoryCallType.GET_Current_Action_Memory]
+        key_info_memory = memory[MemoryCallType.GET_Key_Info]
+        current_user_interaction = memory[MemoryCallType.GET_Current_User_Interaction]
         # 构建Prompt
         interactor_event_content = await self.request_llm(
-            self.build_init_prompt(memory[MemoryType.Instruction],
-                                   memory[MemoryType.Plan][-1],  # PlanInfo
-                                   memory[MemoryType.ActionResult][-1] if len(memory[MemoryType.ActionResult]) > 0 else None, # ProgressInfo
-                                   memory[MemoryType.KeyInfo][-1] if len(memory[MemoryType.KeyInfo]) > 0 else None, # KeyInfoList
-                                   memory[MemoryType.UserInteraction],  # KeyInfoList
-                                   memory[MemoryType.ScreenPerception][-1]),
+            self.build_init_prompt(instruction_memory,
+                                   current_action_memory[ActionMemoryType.Plan],
+                                   current_action_memory[ActionMemoryType.StartScreenPerception],
+                                   key_info_memory,
+                                   current_user_interaction),
             [
-                memory[MemoryType.ScreenPerception][-1].screenshot_file_info.get_screenshot_Image_file(), # CurrentScreenImageFile
+                current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file()
             ]
         )
 
-        if interactor_event_content.interaction_status == "B":
-            await self.publish("app_channel", EventMessage(EventType.UserChat, EventStatus.CREATED, interactor_event_content))
-        elif interactor_event_content.interaction_status == "C":
-            memory = await self.call("ShortTimeMemoryManager", CallMessage(CallType.Memory_GET,
-                                                                           [MemoryType.Instruction, MemoryType.Plan,
-                                                                            MemoryType.ActionResult, MemoryType.KeyInfo,
-                                                                            MemoryType.UserInteraction,
-                                                                            MemoryType.ScreenPerception]))
+        if interactor_event_content.interaction_status == "A":
             await self.publish("app_channel", EventMessage(EventType.UserInteraction, EventStatus.DONE, interactor_event_content))
+        elif interactor_event_content.interaction_status == "B":
+            await self.publish("app_channel", EventMessage(EventType.UserChat, EventStatus.CREATED, interactor_event_content))
         logger.info("[Interact With User] TASK completed.")
 
     @staticmethod
@@ -78,27 +84,30 @@ class UserInteractorAgent(Agent):
     def build_init_prompt(self,
                           instruction,
                           plan_info: PlanInfo,
-                          progress_info: ProgressInfo,
+                          current_screen_perception_info: ScreenPerceptionInfo,
                           key_infos: list,
-                          user_interaction_list: List[UserInteractionInfo],
-                          current_screen_perception_info: ScreenPerceptionInfo) -> str:
+                          user_interaction_list: List[UserInteractionInfo]) -> str:
         prompt = f"You have just started or have completed several interactions with the user, and this is the detail of this interaction:" \
                  f"- Interaction Type: {self.get_user_interaction_type_desc(plan_info.user_interaction_type)}\n" \
                  f"- Historical User Prompt and Response:\n"
-        for user_interaction in user_interaction_list[:-1]:
-            prompt += f"User Prompt:{user_interaction.action_instruction} | " \
-                      f"User Response:{user_interaction.user_response}\n"
+        if len(user_interaction_list[:-2])>0:
+            for user_interaction in user_interaction_list[:-2]:
+                prompt += f"User Prompt:{user_interaction.action_instruction} | " \
+                          f"User Response:{user_interaction.user_response}\n"
+        else:
+            prompt += f"No history of interactions."
+        if len(user_interaction_list) > 0:
+            prompt += f"- Current User Prompt and Response:\n" \
+                      f"User Prompt:{user_interaction_list[-1].action_instruction} | " \
+                      f"User Response:{user_interaction_list[-1].user_response}\n" \
+                      f"\n"
+        else:
+            prompt += f"This is the first interaction."
 
-        prompt += f"- Current User Prompt and Response:\n" \
-                  f"User Prompt:{user_interaction_list[-1].action_instruction} | " \
-                  f"User Response:{user_interaction_list[-1].user_response}\n" \
-                  f"\n"
-
-        prompt += f"This is the user instruction, plan and progress before interacting with the user:\n" \
+        prompt += f"This is the user instruction, plan before interacting with the user:\n" \
                   f"- Instruction: {instruction}\n" \
                   f"- Overall Plan: {plan_info.overall_plan}\n" \
                   f"- Sub-goal: {plan_info.current_sub_goal}\n" \
-                  f"- History Progress Status: {progress_info.progress_status if progress_info is not None else 'No progress yet.'}\n" \
                   f"\n"
 
         prompt += f"The following key information is currently available for interaction with users:" \
@@ -113,7 +122,7 @@ class UserInteractorAgent(Agent):
                   f"- B: Target not completed, need to begin or continue interaction with user; \n"\
                   f"- C: Target not completed, need to gather more information to interact with the user (optional for Interaction Type 3 only); \n"\
                   f"2. If the Interaction status is A, summarize the history with the current user's response. \n"\
-                  f"3. If the Interaction Status is B, construct a prompt and interact with the user, carefully explaining what is needed from the user (to continue); \n"\
+                  f"3. If the Interaction Status is B, construct a prompt and interact with the user, carefully explaining what is needed from the user (to continue), ask the user to answer yes or no if confirmation is required; \n"\
                   f"4. If the Interaction Status is C, carefully specify in the instructions what information needs to be collected in order for the user to make a decision; \n"\
                   f"\n"
 

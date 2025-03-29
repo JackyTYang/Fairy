@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from Fairy.type import EventType, EventStatus, CallType
+from Fairy.type import EventType, EventStatus
 
 
 class EventMessage:
@@ -14,6 +14,6 @@ class EventMessage:
         return f"EventMessage: {self.event}, {self.status}, {self.event_content}"
 
 class CallMessage:
-    def __init__(self, call: CallType, call_content=None):
-        self.call = call
+    def __init__(self, call_type, call_content=None):
+        self.call_type = call_type
         self.call_content = call_content

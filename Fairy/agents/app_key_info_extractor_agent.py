@@ -8,8 +8,9 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenPerceptionInfo, ActionInfo
+from Fairy.memory.short_time_memory_manger import MemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, EventStatus, CallType, MemoryType
+from Fairy.type import EventType, EventStatus, CallType
 
 
 class KeyInfoExtractorAgent(Agent):
@@ -20,25 +21,32 @@ class KeyInfoExtractorAgent(Agent):
         super().__init__(runtime, "KeyInfoExtractorAgent", model_client, system_messages)
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.Plan and msg.status == EventStatus.DONE)
+              listen_filter=lambda msg: msg.event == EventType.Reflection and msg.status == EventStatus.DONE)
     async def on_key_info_extract(self, message:EventMessage , message_context):
         logger.debug("[Extract KeyInfo] TASK in progress...")
+        # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, EndScreenPerception)\KeyInfo
+        memory = await (await self.call(
+            "ShortTimeMemoryManager",
+            CallMessage(CallType.Memory_GET,{
+                MemoryCallType.GET_Instruction: None,
+                MemoryCallType.GET_Current_Action_Memory: [ActionMemoryType.Plan, ActionMemoryType.EndScreenPerception],
+                MemoryCallType.GET_Key_Info: None
+            })
+        ))
+        instruction_memory = memory[MemoryCallType.GET_Instruction]
+        current_action_memory = memory[MemoryCallType.GET_Current_Action_Memory]
+        key_info_memory = memory[MemoryCallType.GET_Key_Info]
 
-        # 从ShortTimeMemoryManager获取Instruction, CurrentScreenPerception, Plan
-        memory = await self.call("ShortTimeMemoryManager", CallMessage(CallType.Memory_GET, [MemoryType.Instruction, MemoryType.ActionResult, MemoryType.KeyInfo, MemoryType.ScreenPerception]))
-        memory = await memory
         # 构建Prompt
         key_info_extraction_event_content = await self.request_llm(
             self.build_prompt(
-                memory[MemoryType.Instruction], # Instruction
-                message.event_content,  # PlanInfo
-                # ProgressInfoList can be empty if this is the first reflection
-                memory[MemoryType.ActionResult][-1] if len(memory[MemoryType.ActionResult]) > 0 else None, # ProgressInfo
-                memory[MemoryType.KeyInfo][-1] if len(memory[MemoryType.KeyInfo]) > 0 else None, # KeyInfoList
-                memory[MemoryType.ScreenPerception][-1], # CurrentScreenPerceptionInfo
+                instruction_memory,
+                current_action_memory[ActionMemoryType.Plan],
+                current_action_memory[ActionMemoryType.EndScreenPerception],
+                key_info_memory
             ),
             [
-                memory[MemoryType.ScreenPerception][-1].screenshot_file_info.get_screenshot_Image_file(), # CurrentScreenImageFile
+                current_action_memory[ActionMemoryType.EndScreenPerception].screenshot_file_info.get_screenshot_Image_file(), # CurrentScreenImageFile
             ]
         )
 
@@ -49,16 +57,14 @@ class KeyInfoExtractorAgent(Agent):
     @staticmethod
     def build_prompt(instruction,
                      plan_info: PlanInfo,
-                     progress_info: ProgressInfo,
-                     key_infos: list,
-                     current_screen_perception_info: ScreenPerceptionInfo) -> str:
+                     current_screen_perception_info: ScreenPerceptionInfo,
+                     key_infos: list) -> str:
         prompt = f"---\n"\
-                 f"The Executor Agent has just completed execution according to the Planner Agent's plan and the result was successful/partially successful, which is the instruction, overall plan, sub-goals, and historical progress:\n"
+                 f"The Executor Agent has just completed execution according to the Planner Agent's plan and the result was successful/partially successful, which is the instruction, overall plan, sub-goals:\n"
 
         prompt += f"- Instruction: {instruction}\n"\
                   f"- Overall Plan: {plan_info.overall_plan}\n" \
                   f"- Sub-goal: {plan_info.current_sub_goal}\n" \
-                  f"- History Progress Status: {progress_info.progress_status if progress_info is not None else 'No progress yet.'}\n" \
 
         prompt += f"---\n"
         prompt += current_screen_perception_info.perception_infos.get_screen_info_note_prompt("The attached image is a screenshots of your phone to show the current state") # Call this function to supplement the prompt "Size of the Image and Additional Information".
@@ -69,8 +75,8 @@ class KeyInfoExtractorAgent(Agent):
         prompt += f"---\n"\
                   f" - Key Information Record (Previously): {key_infos}\n" \
                   f"Please follow the steps below to perform the action:\n"\
-                  "1. Please scrutinize the above information and extract any 'Key Information' that you think may be relevant to the execution of the instruction, the current sub-goal, or a future plan. This 'Key Information' will be subsequently provided to the planner and executor for their reference. \n"\
-                  "IMPORTANT: DO NOT duplicate any information that already exists in the Instruction, Overall Plan, Sub-goals, and Historical Progress. DO NOT record low-level actions.\n"\
+                  "1. Please scrutinize the above information and extract any 'Key Information' that you think may be relevant to the execution of the instruction, the current sub-goal, or a future plan. This 'Key Information'  will be made available to Planner Agent and Executor Agent for their reference in the future. \n"\
+                  "IMPORTANT: DO NOT duplicate any information that already exists in the Instruction, Overall Plan, Sub-goals. DO NOT record low-level actions, e.g., screen coordinates, temporary warning notices, etc.\n"\
                   "IMPORTANT: If there really is no key information worth recording or updating, please just output the previous 'Key Information' and skip the subsequent steps. \n" \
                   "For example, for a search task, the result information displayed after the search is the 'Key Information'.\n"\
                   "2. Please use JSON to format the relevant 'Key Information': think step-by-step to summarize the keys of the JSON, and split the key information to fill in the values of the JSON. \n"\
@@ -84,7 +90,7 @@ class KeyInfoExtractorAgent(Agent):
                   f"- key_info_name: Summarizes the subject of this 'Key Information'. e.g. results of a certain search content.\n"\
                   f"- key_info_description: Explain in detail what the 'Key Information' is, and the purpose of recording this.\n"\
                   f"- details: An array holding one or more JSON formatted 'Key Information'.\n"\
-                  f"Please provide an array that holds one or more 'Key Information Record's. This array should contain updates to previous 'Key Information Record's, please do not leave out records that already exist.\n"\
+                  f"Please provide an array that holds one or more 'Key Information Record's. This array should contain updates to previous 'Key Information Record's, please do not leave out records that already exist. However, if it can be confirmed that the previous record is no longer needed (e.g., the action associated with it has been completed), please remove it.\n"\
                   f"Make sure this JSON can be loaded correctly by json.load().\n"\
                   f"\n"
 

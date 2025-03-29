@@ -17,9 +17,11 @@ class Agent(Worker):
     async def request_llm(self, content: str, images: List[Image] = []):
         # print(content)
         user_message = ChatMessage(content=[content]+images, type="UserMessage", source="user")
+        logger.debug(f"Requesting LLM...")
         response = await self._model_client.create(
             self._system_messages + [user_message]
         )
+        logger.debug(f"Requesting LLM done.")
         responses = self.parse_response(response.content)
         if isinstance(responses, tuple):
             logger.info("LLM Response: ")

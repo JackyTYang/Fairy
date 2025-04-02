@@ -28,7 +28,7 @@ class ScreenPerceptor(Worker):
         await self._on_screen_percept(message, message_context)
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.Plan and message.status == EventStatus.CREATED)
+              listen_filter=lambda message: message.event == EventType.Task and message.status == EventStatus.CREATED)
     async def on_first_screen_percept(self, message: EventMessage, message_context):
         await self._on_screen_percept(message, message_context)
 
@@ -64,6 +64,7 @@ class ScreenPerceptor(Worker):
 
     async def get_screen_description(self):
         screenshot_file_info = await self.get_screen()
+        screenshot_file_info.compress_image_to_jpeg()
 
         # Use FVP
         fvp = FineGrainedVisualPerceptor()

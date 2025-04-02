@@ -10,7 +10,7 @@ from Fairy.agents.app_key_info_extractor_agent import KeyInfoExtractorAgent
 from Fairy.agents.app_planner_agent import AppPlannerAgent
 from Fairy.agents.user_interactor_agent import UserInteractorAgent
 from Fairy.fairy_config import Config
-from Fairy.memory.short_time_memory_manger import ShortTimeMemoryManager
+from Fairy.memory.short_time_memory_manager import ShortTimeMemoryManager
 from Fairy.message_entity import EventMessage
 from Fairy.tools.action_executor import ActionExecutor
 from Fairy.tools.screen_perceptor import ScreenPerceptor
@@ -29,6 +29,16 @@ class FairyCore:
             'model': "gpt-4o-2024-11-20",
             'temperature': 0
         })
+        # self._model_client = OpenAIChatClient({
+        #     'model': "deepseek-v3",
+        #     'model_info': {
+        #         "vision": True,
+        #         "function_calling": True,
+        #         "json_output": True,
+        #     },
+        #     'temperature': 0
+        # })
+
         self._config = Config(adb_path=os.environ["ADB_PATH"])
 
     async def get_device(self):
@@ -67,5 +77,7 @@ class FairyCore:
         runtime.register(lambda: UserChat(runtime))
         runtime.register(lambda: ShortTimeMemoryManager(runtime))
 
-        await runtime.publish("app_channel", EventMessage(EventType.Plan, EventStatus.CREATED, instruction))
+        await runtime.publish("app_channel", EventMessage(EventType.Task, EventStatus.CREATED, {
+            "instruction": instruction
+        }))
         await runtime.stop()

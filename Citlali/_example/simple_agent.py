@@ -20,14 +20,14 @@ class Message:
         self.content = content
 
 class SimpleAgent(Agent):
-    def __init__(self, runtime,name,desc) -> None:
-        super().__init__(runtime,name,desc)
-        self._system_messages = [ChatMessage(
+    def __init__(self, runtime, name) -> None:
+        _system_messages = [ChatMessage(
             content="You are a helpful AI assistant.",
             type="SystemMessage")]
-        self._model_client = OpenAIChatClient({
+        _model_client = OpenAIChatClient({
             'model': "gpt-4o-2024-11-20"
         })
+        super().__init__(runtime, name, _model_client, _system_messages)
 
     @listener(ListenerType.ON_CALLED, listen_filter=lambda msg: True)
     async def on_user_message(self, message: Message, message_context):
@@ -41,7 +41,7 @@ async def main():
     logger.debug("[EXAMPLE] Simple Agent Running!")
     runtime = CitlaliRuntime()
     runtime.run()
-    runtime.register(lambda: SimpleAgent(runtime, "simple_agent","A simple agent"))
+    runtime.register(lambda: SimpleAgent(runtime, "simple_agent"))
 
     example = "Hello, how are you?"
     logger.info("User Say:" + example)

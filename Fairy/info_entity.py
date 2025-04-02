@@ -29,6 +29,12 @@ class ScreenFileInfo:
     def get_screenshot_Image_file(self):
         return Image(PILImage.open(self.get_screenshot_fullpath()))
 
+    def compress_image_to_jpeg(self, quality=50):
+        with PILImage.open(self.get_screenshot_fullpath()) as img:
+            img = img.convert('RGB')
+            self.file_type = 'jpeg'
+            img.save(self.get_screenshot_fullpath(), 'JPEG', quality=quality)
+
 
 class ScreenPerceptionInfo:
     def __init__(self, screenshot_file_info: ScreenFileInfo, perception_infos):
@@ -80,16 +86,16 @@ class ProgressInfo:
                 f"\n -----------ProgressInfo END-----------")
 
 class UserInteractionInfo:
-    def __init__(self, interaction_status, interaction_thought, action_instruction, user_response):
+    def __init__(self, interaction_status, interaction_thought, action_instruction, response):
         self.interaction_status = interaction_status
         self.interaction_thought = interaction_thought
         self.action_instruction = action_instruction
-        self.user_response = user_response
+        self.response = response
 
     def __str__(self):
         return (f"\n -------------UserInteractionInfo-------------"
                 f"\n - Interaction Status: {self.interaction_status}"
                 f"\n - Interaction Thought: {self.interaction_thought}"
                 f"\n - Action Instruction: {self.action_instruction}"
-                f"\n - User Response: {self.user_response}"
+                f"\n - Response: {self.response}"
                 f"\n -----------UserInteractionInfo END-----------")

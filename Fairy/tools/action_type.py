@@ -1,9 +1,12 @@
 from enum import Enum
+from re import escape
+
 
 class AtomicActionType(Enum):
     Tap = "Tap"
+    ClearInput = "ClearInput"
     Swipe = "Swipe"
-    Type = "Type"
+    Input = "Input"
     KeyEvent = "KeyEvent"
     Wait = "Wait"
     Finish = "Finish"
@@ -26,10 +29,15 @@ ATOMIC_ACTION_SIGNITURES = {
                        "In light sweeps, duration can generally be set to 500, while in long presses, duration generally needs to be greater than 2500",
         "command": lambda args: f"shell input swipe {args['x1']} {args['y1']} {args['x2']} {args['y2']} {args['duration']}"
     },
-    AtomicActionType.Type: {
+    AtomicActionType.Input: {
         "arguments": ["text"],
-        "description": "Type the \"text\" in an input box.",
-        "command": lambda args: f" shell am broadcast -a ADB_INPUT_TEXT --es msg \"{args['text']}\""
+        "description": "Input the \"text\" in an input box.",
+        "command": lambda args: " shell am broadcast -a ADB_INPUT_TEXT --es msg " + str(escape(args['text']).replace("\'","\\'"))
+    },
+    AtomicActionType.ClearInput: {
+        "arguments": [],
+        "description": "Clear all existing input in an input box.",
+        "command": lambda args: f" shell am broadcast -a ADB_CLEAR_TEXT"
     },
     AtomicActionType.KeyEvent: {
         "arguments": ["type"],

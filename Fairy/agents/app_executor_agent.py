@@ -9,7 +9,7 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenPerceptionInfo, ActionInfo
-from Fairy.memory.short_time_memory_manger import ActionMemoryType, MemoryCallType
+from Fairy.memory.short_time_memory_manager import ActionMemoryType, MemoryCallType
 from Fairy.message_entity import EventMessage, CallMessage
 from Fairy.type import EventStatus, EventType, CallType
 from Fairy.tools.action_type import ATOMIC_ACTION_SIGNITURES, AtomicActionType
@@ -84,20 +84,18 @@ class AppExecutorAgent(Agent):
 
         prompt += current_screen_perception_info.perception_infos.get_screen_info_prompt() # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
 
-        prompt += "TIPS: Search bar is often a long, rounded rectangle. If no search bar is presented and you want to perform a search, you may need to tap a search button, which is commonly represented by a magnifying glass.\n"
-        prompt += "\n"
-
         prompt += "---\n"
         prompt += "Carefully examine all the information provided above and decide on the next action to perform. If you notice an unsolved error in the previous action, think as a human user and attempt to rectify them. You must choose your action from ONE or MORE of the atomic actions.\n\n"
         prompt += "- Atomic Actions: \n"
         prompt += "The atomic action functions are listed in the format of `name(arguments): description` as follows:\n"
 
         for action, value in ATOMIC_ACTION_SIGNITURES.items():
-            if current_screen_perception_info.perception_infos.keyboard_status and action == AtomicActionType.Type:
-                continue # Skip the Type action if the keyboard is not activated
+            # if current_screen_perception_info.perception_infos.keyboard_status and action == AtomicActionType.Type:
+            #     continue # Skip the Type action if the keyboard is not activated
             prompt += f"- {action}({', '.join(value['arguments'])}): {value['description']}\n"
         if not current_screen_perception_info.perception_infos.keyboard_status:
-            prompt += "NOTE: Unable to type. The keyboard has not been activated. To type, please activate the keyboard by tapping on an input box, which includes tapping on an input box first.”\n"
+            prompt += "NOTE: Unable to input. The keyboard has not been activated. To input, please activate the keyboard by tapping on an input box, which includes tapping on an input box first.\n"\
+                      "\n"
 
         prompt += f"---\n" \
                   f"- Latest Action History: \n"
@@ -115,6 +113,13 @@ class AppExecutorAgent(Agent):
             prompt += "\n"
         else:
             prompt += "No actions have been taken yet.\n\n"
+
+        prompt += "Here's some basic common sense for using the app, please NOTE:\n" \
+                  "1. As a promotional tool, the search bar may have been pre-filled with promotional content, and clicking the search button directly may result in searching for advertisements. In this case, you can tap the body of the search bar, delete all the contents, and then input in the content you want to search.\n" \
+                  "2. If the search bar is pre-filled please DO NOT tap on the SEARCH BUTTON but tap on the search bar instead.\n" \
+                  "3. Search bar is often a long, rounded rectangle. If no search bar is presented and you want to perform a search, you may need to tap a search button, which is commonly represented by a magnifying glass. \n" \
+                  "4. If a search bar exists, DO NOT click the search button until you have entered what you want to search for!\n"\
+                  "\n"
 
         prompt += "---\n"
         prompt += "Please provide a JSON with 3 keys, which are interpreted as follows:\n"\

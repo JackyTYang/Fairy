@@ -9,7 +9,7 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenPerceptionInfo, ActionInfo, UserInteractionInfo
-from Fairy.memory.short_time_memory_manger import MemoryCallType, ActionMemoryType
+from Fairy.memory.short_time_memory_manager import MemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
 from Fairy.type import EventType, EventStatus, CallType
 
@@ -98,7 +98,16 @@ class AppPlannerAgent(Agent):
         if not self.is_finished_action(reflection_event_content, current_action_memory[ActionMemoryType.Action]):
             await asyncio.sleep(5)
             await self.publish("app_channel", EventMessage(EventType.Plan, EventStatus.DONE, plan_event_content))
+        else:
+            await self.publish("app_channel", EventMessage(EventType.TaskFinish, EventStatus.CREATED))
         logger.info("[Plan] TASK completed.")
+
+    @staticmethod
+    def is_finished_action(progress_info: ProgressInfo, action_info: ActionInfo) -> bool:
+        if progress_info.action_result == "A" and len(action_info.actions) > 0 and action_info.actions[0]['name'] == "Finish":
+            logger.info("All requirements in the user's Instruction have been completed.")
+            return True
+        return False
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
               listen_filter=lambda msg: msg.event == EventType.UserInteraction and msg.status == EventStatus.DONE)
@@ -131,15 +140,9 @@ class AppPlannerAgent(Agent):
         logger.info("[Plan(UserInteraction)] TASK completed.")
 
     @staticmethod
-    def is_finished_action(progress_info: ProgressInfo, action_info: ActionInfo) -> bool:
-        if progress_info.action_result == "A" and len(action_info.actions) > 0 and action_info.actions[0]['name'] == "Finish":
-            logger.info("All requirements in the user's Instruction have been completed.")
-            return True
-        return False
-
-    @staticmethod
     def build_init_prompt(instruction) -> str:
-        prompt = f"- Instruction: {instruction}\n"\
+        prompt = f"---\n"\
+                 f"- Instruction: {instruction}\n"\
                  f"\n"
 
         prompt += f"---\n"\
@@ -221,7 +224,7 @@ class AppPlannerAgent(Agent):
         prompt = f"---\n"\
                  f"The User Interactor Agent has just finished interacting with the user as you had previously planned, and this is the user interaction type and result:\n"\
                  f"- User Interaction Type: {plan_info.user_interaction_type}\n"\
-                 f"- User Response: {user_interaction_info.user_response}\n"\
+                 f"- User Response: {user_interaction_info.response}\n"\
                  f"\n"
 
         prompt += f"---\n"\

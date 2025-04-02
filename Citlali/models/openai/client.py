@@ -4,6 +4,7 @@ import os
 from typing import List, Sequence, Mapping, Any, cast
 
 from openai import AsyncOpenAI
+from openai.resources.chat import AsyncCompletions
 from openai.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam, \
     ChatCompletionContentPartImageParam, ChatCompletionContentPartTextParam
 from openai.types.chat.chat_completion_content_part_image_param import ImageURL
@@ -90,6 +91,9 @@ class OpenAIChatClient(ChatClient):
 
         # 转换消息
         messages = [OpenAIChatMessage.convert(message) for message in messages]
+
+        openai_create_kwargs = set(inspect.signature(AsyncCompletions.create).parameters)
+        create_args = {k: v for k, v in create_args.items() if k in openai_create_kwargs}
 
         # 创建对话
         future = asyncio.ensure_future(

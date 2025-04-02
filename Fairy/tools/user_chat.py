@@ -17,5 +17,5 @@ class UserChat(Worker):
         user_response = input(message.event_content.action_instruction+"\n")
         logger.debug(f"Further instructions have been obtained. Instruction：{user_response}")
 
-        message.event_content.user_response = user_response
+        message.event_content.response = user_response
         await self.publish("app_channel", EventMessage(EventType.UserChat, EventStatus.DONE, message.event_content))

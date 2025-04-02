@@ -9,7 +9,7 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.info_entity import PlanInfo, ScreenPerceptionInfo, UserInteractionInfo
-from Fairy.memory.short_time_memory_manger import MemoryCallType, ActionMemoryType
+from Fairy.memory.short_time_memory_manager import MemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
 from Fairy.type import EventType, EventStatus, CallType
 
@@ -30,7 +30,7 @@ class UserInteractorAgent(Agent):
             logger.info("[Interact With User] No user interaction required, skipped")
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.UserChat and msg.status == EventStatus.DONE)
+              listen_filter=lambda msg: (msg.event == EventType.UserChat or msg.event == EventType.TaskFinish) and msg.status == EventStatus.DONE and type(msg.event_content) == UserInteractionInfo)
     async def on_user_interact_reflect(self, message: EventMessage, message_context):
         await self._on_user_interact(message, message_context)
 
@@ -67,6 +67,13 @@ class UserInteractorAgent(Agent):
             await self.publish("app_channel", EventMessage(EventType.UserInteraction, EventStatus.DONE, interactor_event_content))
         elif interactor_event_content.interaction_status == "B":
             await self.publish("app_channel", EventMessage(EventType.UserChat, EventStatus.CREATED, interactor_event_content))
+        elif interactor_event_content.interaction_status == "C":
+            await self.publish("app_channel", EventMessage(EventType.Task, EventStatus.CREATED, {
+                "instruction": interactor_event_content.action_instruction,
+                "thought": interactor_event_content.interaction_thought,
+                "task_name": "More Info Explore",
+                "source": "UserInteractorAgent"
+            }))
         logger.info("[Interact With User] TASK completed.")
 
     @staticmethod
@@ -87,22 +94,25 @@ class UserInteractorAgent(Agent):
                           current_screen_perception_info: ScreenPerceptionInfo,
                           key_infos: list,
                           user_interaction_list: List[UserInteractionInfo]) -> str:
-        prompt = f"You have just started or have completed several interactions with the user, and this is the detail of this interaction:" \
-                 f"- Interaction Type: {self.get_user_interaction_type_desc(plan_info.user_interaction_type)}\n" \
-                 f"- Historical User Prompt and Response:\n"
+        prompt = f"You have just started or have completed several interactions with the user, and this is the detail of this interaction:\n" \
+                 f"- Interaction Type: {self.get_user_interaction_type_desc(plan_info.user_interaction_type)}\n"
+
+        prompt += f"- Historical User Prompt and Response:\n"
         if len(user_interaction_list[:-2])>0:
             for user_interaction in user_interaction_list[:-2]:
                 prompt += f"User Prompt:{user_interaction.action_instruction} | " \
-                          f"User Response:{user_interaction.user_response}\n"
+                          f"User Response:{user_interaction.response}\n"
         else:
-            prompt += f"No history of interactions."
+            prompt += f"No history of interactions.\n"
+
+        prompt += f"- Current User Prompt and Response:\n"
         if len(user_interaction_list) > 0:
-            prompt += f"- Current User Prompt and Response:\n" \
-                      f"User Prompt:{user_interaction_list[-1].action_instruction} | " \
-                      f"User Response:{user_interaction_list[-1].user_response}\n" \
-                      f"\n"
+            prompt += f"User Prompt:{user_interaction_list[-1].action_instruction} | " \
+                      f"User Response:{user_interaction_list[-1].response}\n"
         else:
-            prompt += f"This is the first interaction."
+            prompt += f"This is the first interaction.\n"
+
+        prompt += f"\n"
 
         prompt += f"This is the user instruction, plan before interacting with the user:\n" \
                   f"- Instruction: {instruction}\n" \
@@ -110,7 +120,7 @@ class UserInteractorAgent(Agent):
                   f"- Sub-goal: {plan_info.current_sub_goal}\n" \
                   f"\n"
 
-        prompt += f"The following key information is currently available for interaction with users:" \
+        prompt += f"The following key information is currently available for interaction with users:\n" \
                   f"- Key Information: {key_infos}\n" \
                   f"\n"
 
@@ -131,7 +141,7 @@ class UserInteractorAgent(Agent):
                   f"- interaction_status: Please use A, B and C to indicate;\n" \
                   f"- interaction_thought: Explain in detail your reasons for choosing the Interaction Status;\n"\
                   f"- action_instruction: If the interaction status is A, please fill in 'None'; if the interaction status is B, please fill in the prompt words that can help the user to make an answer or a choice; if the interaction status is C, please fill in the instruction about information collection;\n"\
-                  f"- user_response: If the interaction status is A, please fill in a summary of all user responses; otherwise fill in 'None'.\n"\
+                  f"- response: If the interaction status is A, please fill in a summary of all responses; otherwise fill in 'None'.\n"\
                   f"Make sure this JSON can be loaded correctly by json.load().\n" \
                   f"\n"
         return prompt
@@ -141,6 +151,6 @@ class UserInteractorAgent(Agent):
             response = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL).group(1)
         response_jsonobject = json.loads(response)
 
-        user_interaction_info = UserInteractionInfo(response_jsonobject['interaction_status'], response_jsonobject['interaction_thought'], response_jsonobject['action_instruction'], response_jsonobject['user_response'])
+        user_interaction_info = UserInteractionInfo(response_jsonobject['interaction_status'], response_jsonobject['interaction_thought'], response_jsonobject['action_instruction'], response_jsonobject['response'])
 
         return user_interaction_info

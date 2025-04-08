@@ -9,7 +9,8 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenPerceptionInfo, ActionInfo, UserInteractionInfo
-from Fairy.memory.short_time_memory_manager import MemoryCallType, ActionMemoryType
+from Fairy.memory.long_time_memory_manager import LongMemoryCallType
+from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
 from Fairy.type import EventType, EventStatus, CallType
 
@@ -21,6 +22,8 @@ class AppPlannerAgent(Agent):
             type="SystemMessage")]
         super().__init__(runtime, "AppPlannerAgent", model_client, system_messages)
 
+        self.instruction_tips = None
+
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
               listen_filter=lambda msg: msg.event == EventType.ScreenPerception and msg.status == EventStatus.DONE)
@@ -28,10 +31,10 @@ class AppPlannerAgent(Agent):
         memory = await (await self.call(
             "ShortTimeMemoryManager",
             CallMessage(CallType.Memory_GET, {
-                MemoryCallType.GET_Is_INIT_MODE: None
+                ShortMemoryCallType.GET_Is_INIT_MODE: None
             })
         ))
-        if memory[MemoryCallType.GET_Is_INIT_MODE]:
+        if memory[ShortMemoryCallType.GET_Is_INIT_MODE]:
             await self.on_plan_init(message, message_context)
         else:
             await self.on_plan_next(message, message_context)
@@ -42,12 +45,22 @@ class AppPlannerAgent(Agent):
         memory = await (await self.call(
             "ShortTimeMemoryManager",
             CallMessage(CallType.Memory_GET, {
-                MemoryCallType.GET_Instruction:None,
-                MemoryCallType.GET_Current_Action_Memory:[ActionMemoryType.StartScreenPerception]
+                ShortMemoryCallType.GET_Instruction:None,
+                ShortMemoryCallType.GET_Current_Action_Memory:[ActionMemoryType.StartScreenPerception]
             })
         ))
-        instruction_memory = memory[MemoryCallType.GET_Instruction]
-        current_action_memory = memory[MemoryCallType.GET_Current_Action_Memory]
+        instruction_memory = memory[ShortMemoryCallType.GET_Instruction]
+        current_action_memory = memory[ShortMemoryCallType.GET_Current_Action_Memory]
+
+        # 从LongTimeMemoryManager获取Tips
+        long_memory = await (await self.call(
+            "LongTimeMemoryManager",
+            CallMessage(CallType.Memory_GET,{
+                LongMemoryCallType.GET_Plan_Tips: instruction_memory,
+            })
+        ))
+        self.instruction_tips = long_memory[LongMemoryCallType.GET_Plan_Tips]
+
         # 构建Prompt
         plan_event_content, reflection_event_content = await self.request_llm(
             self.build_init_prompt(instruction_memory),
@@ -65,14 +78,14 @@ class AppPlannerAgent(Agent):
         memory = await (await self.call(
             "ShortTimeMemoryManager",
             CallMessage(CallType.Memory_GET, {
-                MemoryCallType.GET_Instruction:None,
-                MemoryCallType.GET_Current_Action_Memory:[ActionMemoryType.Plan, ActionMemoryType.Action, ActionMemoryType.StartScreenPerception, ActionMemoryType.EndScreenPerception],
-                MemoryCallType.GET_Key_Info:None
+                ShortMemoryCallType.GET_Instruction:None,
+                ShortMemoryCallType.GET_Current_Action_Memory:[ActionMemoryType.Plan, ActionMemoryType.Action, ActionMemoryType.StartScreenPerception, ActionMemoryType.EndScreenPerception],
+                ShortMemoryCallType.GET_Key_Info:None
             })
         ))
-        instruction_memory = memory[MemoryCallType.GET_Instruction]
-        current_action_memory = memory[MemoryCallType.GET_Current_Action_Memory]
-        key_info_memory = memory[MemoryCallType.GET_Key_Info]
+        instruction_memory = memory[ShortMemoryCallType.GET_Instruction]
+        current_action_memory = memory[ShortMemoryCallType.GET_Current_Action_Memory]
+        key_info_memory = memory[ShortMemoryCallType.GET_Key_Info]
 
         # 构建Prompt
         plan_event_content, reflection_event_content = await self.request_llm(
@@ -117,13 +130,13 @@ class AppPlannerAgent(Agent):
         memory = await (await self.call(
             "ShortTimeMemoryManager",
             CallMessage(CallType.Memory_GET, {
-                MemoryCallType.GET_Instruction:None,
-                MemoryCallType.GET_Current_Action_Memory:[ActionMemoryType.Plan, ActionMemoryType.StartScreenPerception],
-                MemoryCallType.GET_Key_Info:None
+                ShortMemoryCallType.GET_Instruction:None,
+                ShortMemoryCallType.GET_Current_Action_Memory:[ActionMemoryType.Plan, ActionMemoryType.StartScreenPerception],
+                ShortMemoryCallType.GET_Key_Info:None
             })
         ))
-        instruction_memory = memory[MemoryCallType.GET_Instruction]
-        current_action_memory = memory[MemoryCallType.GET_Current_Action_Memory]
+        instruction_memory = memory[ShortMemoryCallType.GET_Instruction]
+        current_action_memory = memory[ShortMemoryCallType.GET_Current_Action_Memory]
 
         # 构建Prompt
         plan_event_content, reflection_event_content = await self.request_llm(
@@ -139,14 +152,18 @@ class AppPlannerAgent(Agent):
         await self.publish("app_channel", EventMessage(EventType.Plan, EventStatus.DONE, plan_event_content))
         logger.info("[Plan(UserInteraction)] TASK completed.")
 
-    @staticmethod
-    def build_init_prompt(instruction) -> str:
+    def build_init_prompt(self, instruction) -> str:
         prompt = f"---\n"\
                  f"- Instruction: {instruction}\n"\
                  f"\n"
 
         prompt += f"---\n"\
                   f"Think step by step and make an high-level plan to achieve the user's instruction. If the request is complex, break it down into sub-goals. If the request involves exploration, include concrete sub-goals to quantify the investigation steps. The screenshot displays the starting state of the phone.\n"\
+                  f"\n"
+
+        prompt += f"---\n" \
+                  f"Here's some TIPS for execution the action. These TIPS are VERY IMPORTANT, so MAKE SURE you follow them to the letter!\n" \
+                  f"{self.instruction_tips}\n" \
                   f"\n"
 
         prompt += f"---\n"\
@@ -196,10 +213,13 @@ class AppPlannerAgent(Agent):
                   f"2. If the result is A, then: update the 'History Progress Status'; mark the task as completed in the 'Overall Plan'; and determine the next 'Sub-goal' to be executed based on the plan.\n" \
                   f"3. If the result is B, then: update the 'History Progress Status'; outline the 'Sub-goal' that should be continued next.\n" \
                   f"4. If the result is C or D, then: try to explain the 'Error Potential Causes' of the failure; think step-by-step about whether the 'Overall Plan' needs to be revised to address the error; determine the next 'Sub-goal' to be executed based on the plan.\n" \
-                  f"5. In the following cases where user interaction is required, determine whether user interaction is required next, and select 0 if no user interaction is required:\n"
+                  f"5. Due to the lack of knowledge you may have when you first plan, please review and update (if necessary) your 'Overall Plan' based on the main features and content of the current screen.\n" \
+                  f"6. In the following cases where user interaction is required, determine whether user interaction is required next, and select 0 if no user interaction is required:\n"
         prompt += self.get_user_interaction_situation_prompt() + f"\n"
 
-        prompt += f"NOTE: Moving to the recycle bin is not a irreversible deletion!\n" \
+        prompt += f"---\n" \
+                  f"Here's some TIPS for execution the action. These TIPS are VERY IMPORTANT, so MAKE SURE you follow them to the letter!\n" \
+                  f"{self.instruction_tips}\n" \
                   f"\n"
 
         prompt += f"---\n"\
@@ -242,7 +262,7 @@ class AppPlannerAgent(Agent):
                   f"1. In the following cases where user interaction is required, determine whether user interaction is required next, and select 0 if no user interaction is required:\n"
         prompt += self.get_user_interaction_situation_prompt() + f"\n"
 
-        prompt += f"2. If user interaction is no longer required, think about whether the overall plan, sub-goals that were planned to be executed prior to the interaction need to be changed.\n" \
+        prompt += f"2. If user interaction is no longer required, think about whether the overall plan, sub-goals that were planned to be executed prior to the interaction need to be changed. Please note that you have just interacted with the user and you have not actually done the new instructions from the user, please plan to fulfill the new instructions from the user. \n" \
                   f"\n"
 
         prompt += f"---\n"\

@@ -8,7 +8,7 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenPerceptionInfo, ActionInfo
-from Fairy.memory.short_time_memory_manager import MemoryCallType, ActionMemoryType
+from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
 from Fairy.type import EventType, EventStatus, CallType
 
@@ -28,14 +28,14 @@ class KeyInfoExtractorAgent(Agent):
         memory = await (await self.call(
             "ShortTimeMemoryManager",
             CallMessage(CallType.Memory_GET,{
-                MemoryCallType.GET_Instruction: None,
-                MemoryCallType.GET_Current_Action_Memory: [ActionMemoryType.Plan, ActionMemoryType.EndScreenPerception],
-                MemoryCallType.GET_Key_Info: None
+                ShortMemoryCallType.GET_Instruction: None,
+                ShortMemoryCallType.GET_Current_Action_Memory: [ActionMemoryType.Plan, ActionMemoryType.EndScreenPerception],
+                ShortMemoryCallType.GET_Key_Info: None
             })
         ))
-        instruction_memory = memory[MemoryCallType.GET_Instruction]
-        current_action_memory = memory[MemoryCallType.GET_Current_Action_Memory]
-        key_info_memory = memory[MemoryCallType.GET_Key_Info]
+        instruction_memory = memory[ShortMemoryCallType.GET_Instruction]
+        current_action_memory = memory[ShortMemoryCallType.GET_Current_Action_Memory]
+        key_info_memory = memory[ShortMemoryCallType.GET_Key_Info]
 
         # 构建Prompt
         key_info_extraction_event_content = await self.request_llm(
@@ -73,7 +73,7 @@ class KeyInfoExtractorAgent(Agent):
         prompt += current_screen_perception_info.perception_infos.get_screen_info_prompt() # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
 
         prompt += f"---\n"\
-                  f" - Key Information Record (Previously): {key_infos}\n" \
+                  f"- Key Information Record (Previously): {key_infos}\n" \
                   f"Please follow the steps below to perform the action:\n"\
                   "1. Please scrutinize the above information and extract any 'Key Information' that you think may be relevant to the execution of the instruction, the current sub-goal, or a future plan. This 'Key Information'  will be made available to Planner Agent and Executor Agent for their reference in the future. \n"\
                   "IMPORTANT: DO NOT duplicate any information that already exists in the Instruction, Overall Plan, Sub-goals. DO NOT record low-level actions, e.g., screen coordinates, temporary warning notices, etc.\n"\
@@ -84,6 +84,12 @@ class KeyInfoExtractorAgent(Agent):
                   "3. When there are multiple key information of the same type, it should be merged into an array.\n"\
                   "For example, [{'title':... , 'content':...} ,{'title':... , 'content':...} ,...]\n"\
                   "4. If there are records of the same type as the currently recorded key information in the previous 'Key Information Record', they should be merged into the 'details' array of the previous record; otherwise, a new 'Key Information Record' should be added.\n"\
+                  "\n"\
+
+        prompt += f"---\n"\
+                  f"Note that the following information should be recorded:\n"\
+                  f"- If all relevant search results have been displayed and there are no more to be loaded, record this.\n" \
+                  "\n"
 
         prompt += f"---\n"\
                   f"The 'Key Information Record' is a JSON with 3 keys, which are interpreted as follows:\n"\

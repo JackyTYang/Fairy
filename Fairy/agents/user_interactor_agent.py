@@ -9,7 +9,7 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.info_entity import PlanInfo, ScreenPerceptionInfo, UserInteractionInfo
-from Fairy.memory.short_time_memory_manager import MemoryCallType, ActionMemoryType
+from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
 from Fairy.type import EventType, EventStatus, CallType
 
@@ -41,16 +41,16 @@ class UserInteractorAgent(Agent):
         memory = await (await self.call(
             "ShortTimeMemoryManager",
             CallMessage(CallType.Memory_GET,{
-                MemoryCallType.GET_Instruction:None,
-                MemoryCallType.GET_Current_Action_Memory:[ActionMemoryType.Plan, ActionMemoryType.StartScreenPerception],
-                MemoryCallType.GET_Key_Info:None,
-                MemoryCallType.GET_Current_User_Interaction: None
+                ShortMemoryCallType.GET_Instruction:None,
+                ShortMemoryCallType.GET_Current_Action_Memory:[ActionMemoryType.Plan, ActionMemoryType.StartScreenPerception],
+                ShortMemoryCallType.GET_Key_Info:None,
+                ShortMemoryCallType.GET_Current_User_Interaction: None
             })
         ))
-        instruction_memory = memory[MemoryCallType.GET_Instruction]
-        current_action_memory = memory[MemoryCallType.GET_Current_Action_Memory]
-        key_info_memory = memory[MemoryCallType.GET_Key_Info]
-        current_user_interaction = memory[MemoryCallType.GET_Current_User_Interaction]
+        instruction_memory = memory[ShortMemoryCallType.GET_Instruction]
+        current_action_memory = memory[ShortMemoryCallType.GET_Current_Action_Memory]
+        key_info_memory = memory[ShortMemoryCallType.GET_Key_Info]
+        current_user_interaction = memory[ShortMemoryCallType.GET_Current_User_Interaction]
         # 构建Prompt
         interactor_event_content = await self.request_llm(
             self.build_init_prompt(instruction_memory,
@@ -126,12 +126,12 @@ class UserInteractorAgent(Agent):
 
         prompt += f"---\n"\
                   f"Please follow the steps below to perform the action:\n" \
-                  f"1. Please determine the current status of the interaction with the user: \n"\
+                  f"1. Please check the 'Current User Prompt and Response' (if any) to determine the current status of the interaction with the user: \n"\
                   f"Note: For Interaction Type 3, please check if further information needs to be collected for user decision making. Please ensure that the possible options have been fully investigated (where there are more than 10 options available, only 10 options are required). \n"\
-                  f"- A: Target completed; \n"\
-                  f"- B: Target not completed, need to begin or continue interaction with user; \n"\
-                  f"- C: Target not completed, need to gather more information to interact with the user (optional for Interaction Type 3 only); \n"\
-                  f"2. If the Interaction status is A, summarize the history with the current user's response. \n"\
+                  f"- A: Interaction Target completed, the user has made a clear choice or has clarified the instruction and can end the user interaction; \n"\
+                  f"- B: Interaction Target not completed, need to begin or continue interaction with user; \n"\
+                  f"- C: Interaction Target not completed, 'user requests for more options' OR 'user selects option not offered' OR 'need to gather more information to interact with the user' (optional for Interaction Type 3 only); \n"\
+                  f"2. If the Interaction Status is A, summarize the history with the current user's response. \n"\
                   f"3. If the Interaction Status is B, construct a prompt and interact with the user, carefully explaining what is needed from the user (to continue), ask the user to answer yes or no if confirmation is required; \n"\
                   f"4. If the Interaction Status is C, carefully specify in the instructions what information needs to be collected in order for the user to make a decision; \n"\
                   f"\n"
@@ -140,8 +140,9 @@ class UserInteractorAgent(Agent):
                   f"Please provide a JSON with 3 keys, which are interpreted as follows:\n"\
                   f"- interaction_status: Please use A, B and C to indicate;\n" \
                   f"- interaction_thought: Explain in detail your reasons for choosing the Interaction Status;\n"\
-                  f"- action_instruction: If the interaction status is A, please fill in 'None'; if the interaction status is B, please fill in the prompt words that can help the user to make an answer or a choice; if the interaction status is C, please fill in the instruction about information collection;\n"\
-                  f"- response: If the interaction status is A, please fill in a summary of all responses; otherwise fill in 'None'.\n"\
+                  f"- user_prompt: If the Interaction Status is B, please fill in the prompt words that can help the user to make an answer or a choice, you shouldn't let the user perform any actions on their own, simply ask Yes or No when the user interaction type is 1 or 2; Otherwise, please fill in 'None'. \n" \
+                  f"- action_instruction: If the Interaction Status is C, please fill in the instruction for a new Agent to collect information gathering, need to include information specifically to be collected and quantities; Otherwise, please fill in 'None'.\n" \
+                  f"- response: If the Interaction Status is A, please fill in a summary of all responses; otherwise fill in 'None'.\n"\
                   f"Make sure this JSON can be loaded correctly by json.load().\n" \
                   f"\n"
         return prompt
@@ -151,6 +152,15 @@ class UserInteractorAgent(Agent):
             response = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL).group(1)
         response_jsonobject = json.loads(response)
 
-        user_interaction_info = UserInteractionInfo(response_jsonobject['interaction_status'], response_jsonobject['interaction_thought'], response_jsonobject['action_instruction'], response_jsonobject['response'])
+        if response_jsonobject['interaction_status'] == "C":
+            action_instruction = response_jsonobject['action_instruction']
+        elif response_jsonobject['interaction_status'] == "B":
+            action_instruction = response_jsonobject['user_prompt']
+        else:
+            action_instruction = None
 
+        user_interaction_info = UserInteractionInfo(response_jsonobject['interaction_status'],
+                                                    response_jsonobject['interaction_thought'],
+                                                    action_instruction,
+                                                    response_jsonobject['response'])
         return user_interaction_info

@@ -26,7 +26,8 @@ ATOMIC_ACTION_SIGNITURES = {
                        "You can use it to swipe up / down (x does not move to adjust y) or left / right (y does not move to adjust x) to see more content if a scrolling list exists."
                        "Swipe up/down usually moves half the height of the screen, and left/right passes move half the width of the screen."
                        "You can use it to long-press to select an element (e.g. an image, a file, etc.), especially when explicit checkboxes don't exist or the Tap can't select an element."
-                       "In light sweeps, duration can generally be set to 500, while in long presses, duration generally needs to be greater than 2500",
+                       "In light sweeps, duration can generally be set to 500, while in long presses, duration generally needs to be greater than 2500. "
+                       "In a collection of operations, No other actions can be executed after swiping, otherwise it may cause problems.",
         "command": lambda args: f"shell input swipe {args['x1']} {args['y1']} {args['x2']} {args['y2']} {args['duration']}"
     },
     AtomicActionType.Input: {
@@ -42,7 +43,7 @@ ATOMIC_ACTION_SIGNITURES = {
     AtomicActionType.KeyEvent: {
         "arguments": ["type"],
         "description": "Sends keystroke events, which are of the following types:"
-                       "- KEYCODE_BACK : Return to the previous state;"
+                       "- KEYCODE_BACK : Return to the previous state, in a collection of operations, no other actions can be executed after send KEYCODE_BACK, otherwise it may cause problems."
                        "- KEYCODE_HOME : Return to home page;",
         "command": lambda args: f"shell input keyevent {args['type']}"
     },

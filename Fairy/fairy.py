@@ -10,16 +10,15 @@ from Fairy.agents.app_key_info_extractor_agent import KeyInfoExtractorAgent
 from Fairy.agents.app_planner_agent import AppPlannerAgent
 from Fairy.agents.user_interactor_agent import UserInteractorAgent
 from Fairy.fairy_config import Config
+from Fairy.memory.long_time_memory_manager import LongTimeMemoryManager
 from Fairy.memory.short_time_memory_manager import ShortTimeMemoryManager
 from Fairy.message_entity import EventMessage
 from Fairy.tools.action_executor import ActionExecutor
 from Fairy.tools.screen_perceptor import ScreenPerceptor
+from Fairy.tools.task_manager import TaskManager
 from Fairy.tools.user_chat import UserChat
 from Fairy.type import EventType, EventStatus
 from Fairy.utils.task_executor import TaskExecutor
-
-os.environ["OPENAI_API_KEY"] = "sk-8t4sGAakvPVKfFLn9801056499284a66B31aC07b1f9907F3"
-os.environ["OPENAI_BASE_URL"] = "https://vip.apiyi.com/v1"
 
 os.environ["ADB_PATH"] = "C:/Users/neosunjz/AppData/Local/Android/Sdk/platform-tools/adb.exe"
 
@@ -76,6 +75,8 @@ class FairyCore:
         runtime.register(lambda: UserInteractorAgent(runtime, self._model_client))
         runtime.register(lambda: UserChat(runtime))
         runtime.register(lambda: ShortTimeMemoryManager(runtime))
+        runtime.register(lambda: LongTimeMemoryManager(runtime))
+        runtime.register(lambda: TaskManager(runtime))
 
         await runtime.publish("app_channel", EventMessage(EventType.Task, EventStatus.CREATED, {
             "instruction": instruction

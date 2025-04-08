@@ -22,7 +22,7 @@ class ActionMemoryType(Enum):
     ActionResult = 4
     EndScreenPerception = 5
 
-class MemoryCallType(Enum):
+class ShortMemoryCallType(Enum):
     GET_Instruction = 1
     GET_Current_Action_Memory = 2
     GET_Historical_Action_Memory = 3
@@ -198,17 +198,17 @@ class ShortTimeMemoryManager(Worker):
         for memory_call_type in message.call_content:
             memory = None
             match memory_call_type:
-                case MemoryCallType.GET_Instruction:
+                case ShortMemoryCallType.GET_Instruction:
                     memory = await self._get_instruction_memory()
-                case MemoryCallType.GET_Is_INIT_MODE:
+                case ShortMemoryCallType.GET_Is_INIT_MODE:
                     memory = await self._get_is_init_mode()
-                case MemoryCallType.GET_Current_Action_Memory:
+                case ShortMemoryCallType.GET_Current_Action_Memory:
                     memory = await self._get_current_action_memory(message.call_content[memory_call_type])
-                case MemoryCallType.GET_Historical_Action_Memory:
+                case ShortMemoryCallType.GET_Historical_Action_Memory:
                     memory = await self._get_historical_action_memory(message.call_content[memory_call_type])
-                case MemoryCallType.GET_Key_Info:
+                case ShortMemoryCallType.GET_Key_Info:
                     memory = await self._get_key_info_memory()
-                case MemoryCallType.GET_Current_User_Interaction:
+                case ShortMemoryCallType.GET_Current_User_Interaction:
                     memory = await self._get_current_user_interaction_memory()
             memory_list[memory_call_type] = memory
         return memory_list

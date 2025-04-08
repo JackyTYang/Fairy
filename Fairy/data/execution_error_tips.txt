@@ -1,0 +1,2 @@
+1. If the current page is an error page, you should immediately use BACK to return to the previous page.
+2. If the search doesn't turn up as expected, you should either RE-SEARCH or BACK instead of viewing the incorrect search results.

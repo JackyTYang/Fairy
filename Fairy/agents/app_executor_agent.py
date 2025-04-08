@@ -9,7 +9,8 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenPerceptionInfo, ActionInfo
-from Fairy.memory.short_time_memory_manager import ActionMemoryType, MemoryCallType
+from Fairy.memory.long_time_memory_manager import LongMemoryCallType
+from Fairy.memory.short_time_memory_manager import ActionMemoryType, ShortMemoryCallType
 from Fairy.message_entity import EventMessage, CallMessage
 from Fairy.type import EventStatus, EventType, CallType
 from Fairy.tools.action_type import ATOMIC_ACTION_SIGNITURES, AtomicActionType
@@ -35,19 +36,43 @@ class AppExecutorAgent(Agent):
             return
 
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, StartScreenPerception)\Historical Action Memory (Action, ActionResult)\KeyInfo
-        memory = await (await self.call(
+        short_memory = await (await self.call(
             "ShortTimeMemoryManager",
             CallMessage(CallType.Memory_GET,{
-                MemoryCallType.GET_Instruction:None,
-                MemoryCallType.GET_Current_Action_Memory:[ActionMemoryType.Plan, ActionMemoryType.StartScreenPerception],
-                MemoryCallType.GET_Historical_Action_Memory:{ActionMemoryType.Action:5, ActionMemoryType.ActionResult:5},
-                MemoryCallType.GET_Key_Info:None
+                ShortMemoryCallType.GET_Instruction:None,
+                ShortMemoryCallType.GET_Current_Action_Memory:[ActionMemoryType.Plan, ActionMemoryType.StartScreenPerception],
+                ShortMemoryCallType.GET_Historical_Action_Memory:{ActionMemoryType.Action:5, ActionMemoryType.ActionResult:5},
+                ShortMemoryCallType.GET_Key_Info:None
             })
         ))
-        instruction_memory = memory[MemoryCallType.GET_Instruction]
-        current_action_memory = memory[MemoryCallType.GET_Current_Action_Memory]
-        historical_action_memory = memory[MemoryCallType.GET_Historical_Action_Memory]
-        key_info_memory = memory[MemoryCallType.GET_Key_Info]
+        instruction_memory = short_memory[ShortMemoryCallType.GET_Instruction]
+        current_action_memory = short_memory[ShortMemoryCallType.GET_Current_Action_Memory]
+        historical_action_memory = short_memory[ShortMemoryCallType.GET_Historical_Action_Memory]
+        key_info_memory = short_memory[ShortMemoryCallType.GET_Key_Info]
+
+        # 获取上次任务的完成状态
+        last_action_result = historical_action_memory[ActionMemoryType.ActionResult][-1].action_result if len(historical_action_memory[ActionMemoryType.ActionResult])>0 else None
+        if last_action_result is not None and (last_action_result == "C" or last_action_result == "D"):
+            # 如果上次任务失败，则需要提取纠错Tips
+            long_memory = await (await self.call(
+                "LongTimeMemoryManager",
+                CallMessage(CallType.Memory_GET, {
+                    LongMemoryCallType.GET_Execution_ERROR_Tips: historical_action_memory[ActionMemoryType.ActionResult][-1].error_potential_causes,
+                })
+            ))
+            execution_tips = long_memory[LongMemoryCallType.GET_Execution_ERROR_Tips]
+        else:
+            # 如果上次任务成功，则需要提取执行Tips
+            # 提取当前的Sub-goal
+            sub_goal = current_action_memory[ActionMemoryType.Plan].current_sub_goal
+            # 从LongTimeMemoryManager获取Tips
+            long_memory = await (await self.call(
+                "LongTimeMemoryManager",
+                CallMessage(CallType.Memory_GET,{
+                    LongMemoryCallType.GET_Execution_Tips: sub_goal,
+                })
+            ))
+            execution_tips = long_memory[LongMemoryCallType.GET_Execution_Tips]
 
         event_content = await self.request_llm(
             self.build_prompt(
@@ -56,6 +81,7 @@ class AppExecutorAgent(Agent):
                 current_action_memory[ActionMemoryType.StartScreenPerception],
                 historical_action_memory[ActionMemoryType.Action],
                 historical_action_memory[ActionMemoryType.ActionResult],
+                execution_tips,
                 key_info_memory,
             ),
             [current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file()]
@@ -70,6 +96,7 @@ class AppExecutorAgent(Agent):
                      current_screen_perception_info: ScreenPerceptionInfo,
                      action_info_list: List[ActionInfo],
                      progress_info_list: List[ProgressInfo],
+                     execution_tips: str,
                      key_infos: list) -> str:
         prompt = f"---\n" \
                  f"- Instruction: {instruction}\n" \
@@ -109,22 +136,20 @@ class AppExecutorAgent(Agent):
                     action_log_str += f"Error Potential Causes: {progress_info.error_potential_causes} | "
                 action_log_str += "\n"
                 prompt += action_log_str
-            prompt += "TIPS: If multiple Tap actions failed to make changes to the screen, consider using a \"Swipe\" action to view more content or use another way to achieve the current subgoal."
-            prompt += "\n"
+            prompt += f"IMPORTANT: You should NOT REPEAT Action where the Action Result is Failure. Please be especially CAREFUL to check that the operation you are going to do this time does NOT lead to a REPEAT of the error.\n"
+            prompt += "\n\n"
         else:
             prompt += "No actions have been taken yet.\n\n"
 
-        prompt += "Here's some basic common sense for using the app, please NOTE:\n" \
-                  "1. As a promotional tool, the search bar may have been pre-filled with promotional content, and clicking the search button directly may result in searching for advertisements. In this case, you can tap the body of the search bar, delete all the contents, and then input in the content you want to search.\n" \
-                  "2. If the search bar is pre-filled please DO NOT tap on the SEARCH BUTTON but tap on the search bar instead.\n" \
-                  "3. Search bar is often a long, rounded rectangle. If no search bar is presented and you want to perform a search, you may need to tap a search button, which is commonly represented by a magnifying glass. \n" \
-                  "4. If a search bar exists, DO NOT click the search button until you have entered what you want to search for!\n"\
-                  "\n"
+        prompt += f"---\n" \
+                  f"Here's some TIPS for execution the action. These TIPS are VERY IMPORTANT, so MAKE SURE you follow them to the letter!\n" \
+                  f"{execution_tips}\n" \
+                  f"\n"
 
         prompt += "---\n"
         prompt += "Please provide a JSON with 3 keys, which are interpreted as follows:\n"\
                   "- action_thought: A detailed explanation of your rationale for the chosen action.\n"\
-                  "- actions: Choose ONE or MORE action from the options provided. IMPORTANT: Do NOT return invalid actions like null or stop. Do NOT repeat previously failed actions.The decided action must be provided in a valid JSON format and should be an array containing a sequence of actions, specifying the name and parameters of the action. For example, if you decide to tap on position (100, 200) first, you should first put in the array \{\"name\":\"Tap\", \"arguments\":{\"x\":100, \"y\":100}}. If an action does not require parameters, such as 'Wait', fill in the 'Parameters' field with null. IMPORTANT: MAKE SURE the parameter key matches the signature of the action function exactly. MAKE SURE that the order of the actions in the array is the same as the order in which you want them to be executed. MAKE SURE this JSON can be loaded correctly by json.load().\n"\
+                  "- actions: ONE or MORE action from the 'Atomic Actions' provided. IMPORTANT: DO NOT return invalid actions like null or stop. DO NOT repeat previously failed actions. The decided action must be provided in a valid JSON format and should be an array containing a sequence of actions, specifying the name and parameters of the action. For example, if you decide to tap on position (100, 200) first, you should first put in the array \{\"name\":\"Tap\", \"arguments\":{\"x\":100, \"y\":100}}. If an action does not require parameters, such as 'Wait', fill in the 'Parameters' field with null. IMPORTANT: MAKE SURE the parameter key matches the signature of the action function exactly. MAKE SURE that the order of the actions in the array is the same as the order in which you want them to be executed. MAKE SURE this JSON can be loaded correctly by json.load().\n"\
                   f"- action_expectation: A brief description of the expected results of the selected action(s).\n"\
                   f"Make sure this JSON can be loaded correctly by json.load().\n" \
                   f"\n"

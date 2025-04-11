@@ -14,8 +14,8 @@ keycode_list = {
 }
 
 class UiAutomatorMobileController():
-    def __init__(self, device):
-        self.dev = u2.connect(device)
+    def __init__(self, config):
+        self.dev = u2.connect(config.device)
 
     async def execute_action(self, actions: List[Dict[str, AtomicActionType | dict]]) -> None:
         for action in actions:

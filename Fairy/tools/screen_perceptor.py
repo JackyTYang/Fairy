@@ -6,7 +6,7 @@ from loguru import logger
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import Worker, listener
 from .assm.perceptor import AdaptiveSemanticScreenModeling
-from .fvp.perceptor import FineGrainedVisualPerceptor
+from .FVP.perceptor import FineGrainedVisualPerceptor
 from .adb_tools.screenshot_tool import AdbMobileScreenshot
 from .ui_automator_tools.screenshot_tool import UiAutomatorMobileScreenshot
 from ..info_entity import ScreenFileInfo, ScreenPerceptionInfo

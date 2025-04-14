@@ -7,10 +7,17 @@ BOOL_ATTRS = {
     "checkable", "checked", "clickable", "enabled", "focusable",
     "focused", "scrollable", "long-clickable", "password", "selected"
 }
+# 配置：仅保留这些属性，其他属性一律删除
+ATTRS = {
+    # 在此列出所有允许保留的属性名称，例如：
+    "checkable", "checked", "clickable",
+    "focused", "scrollable", "long-clickable", "password", "selected",
+    "text", "class", "bounds","content-desc"
+}
 
-KEEP_FALSE_BOOLEAN_ATTRS = {""}
-KEEP_EMPTY_STRING_ATTRS = {"package"}
-REMOVE_IF_TRUE_OR_NON_EMPTY = {"package", "class", "index"}
+KEEP_FALSE_BOOLEAN_ATTRS = {}
+KEEP_EMPTY_STRING_ATTRS = {}
+REMOVE_IF_TRUE_OR_NON_EMPTY = {}
 
 
 def merge_attributes(parent_attrib, child_attrib):
@@ -44,6 +51,28 @@ def merge_single_child_nodes(node):
         node = child
     return node
 
+
+def clean_disallowed_attributes(node):
+    """
+    遍历所有节点，删除不在 ATTRS 列表中的属性。
+    """
+    keys_to_delete = [k for k in list(node.attrib.keys()) if k not in ATTRS]
+    for k in keys_to_delete:
+        del node.attrib[k]
+    for child in node:
+        clean_disallowed_attributes(child)
+
+
+def rename_tags_by_class(node):
+    """将节点标签替换为 class 属性值，并删除 class 属性"""
+    class_val = node.attrib.pop('class', None)
+    if class_val:
+        # 如果以 android. 开头，取最后一段
+        if class_val.startswith('android.'):
+            class_val = class_val.split('.')[-1]
+        node.tag = class_val
+    for child in node:
+        rename_tags_by_class(child)
 
 def clean_false_attributes(node):
     keys_to_delete = [
@@ -79,7 +108,7 @@ def clean_remove_true_or_non_empty_attributes(node):
 
 
 def add_bounds_center_attribute(node):
-    bounds = node.attrib.get("bounds", "")
+    bounds = node.attrib.pop('bounds', "")
     if bounds:
         try:
             bounds_values = bounds.strip("[]").split("][")
@@ -121,7 +150,7 @@ def simplify_true_booleans(node):
 def tostring_with_valueless_true(node):
     xml_str = ET.tostring(node, encoding='unicode')
     # 替换 key="__VALLESS__" 为 key
-    xml_str = re.sub(r'\s+(\w+)="__VALLESS__"', r' \1', xml_str)
+    xml_str = re.sub(r'\s+([\w-]+)="__VALLESS__"', r' \1', xml_str)
     return xml_str
 
 
@@ -132,6 +161,7 @@ def fix_valueless_attributes_for_parsing(xml_str):
         tag, attrs = match.groups()
         fixed_attrs = re.sub(r'\s+(\w+)(?=\s|>|/)', r' \1="true"', attrs)
         return f"<{tag}{fixed_attrs}>"
+
     return re.sub(r'<(\w+)((?:\s+\w+)+)\s*/?>', replacer, xml_str)
 
 
@@ -139,12 +169,15 @@ def compressxml(input_path, output_path):
     tree = ET.parse(input_path)
     root = tree.getroot()
 
+
     merged_root = merge_single_child_nodes(root)
+    clean_disallowed_attributes(merged_root)
     clean_false_attributes(merged_root)
     clean_empty_attributes(merged_root)
     clean_remove_true_or_non_empty_attributes(merged_root)
     simplify_true_booleans(merged_root)
     add_bounds_center_attribute(merged_root)
+    rename_tags_by_class(merged_root)
 
     compressed_str = tostring_with_valueless_true(merged_root)
     file_name = os.path.basename(input_path)
@@ -158,11 +191,13 @@ def compressxml(input_path, output_path):
 def get_compress_xml(ui_hierarchy_xml):
     root = ET.fromstring(ui_hierarchy_xml)
     merged_root = merge_single_child_nodes(root)
+    clean_disallowed_attributes(merged_root)
     clean_false_attributes(merged_root)
     clean_empty_attributes(merged_root)
     clean_remove_true_or_non_empty_attributes(merged_root)
     simplify_true_booleans(merged_root)
     add_bounds_center_attribute(merged_root)
+    rename_tags_by_class(merged_root)
     return tostring_with_valueless_true(merged_root)
 
 
@@ -210,14 +245,14 @@ def is_keyboard_active(ui_hierarchy_xml, screen_height, known_ime_packages=None)
 
 
 if __name__ == "__main__":
-    input_xml = "window_dump7.xml"
+    input_xml = "../../assm/window_dump7.xml"
     output_dir = ""
     # 默认以 'r'（只读）模式打开，编码为系统默认（通常 utf-8）
-    with open("window_dump7.xml", "r", encoding="utf-8") as f:
-        content = f.read()  # 读取整个文件为字符串
-    if is_keyboard_active(content,2400):
-        print("✅ 输入键盘当前已激活")
-    else:
-        print("❌ 输入键盘未激活")
+    # with open("Fairy/Fairy/tools/assm/window_dump7.xml", "r", encoding="utf-8") as f:
+    #     content = f.read()  # 读取整个文件为字符串
+    # if is_keyboard_active(content, 2400):
+    #     print("✅ 输入键盘当前已激活")
+    # else:
+    #     print("❌ 输入键盘未激活")
 
     compressxml(input_xml, output_dir)

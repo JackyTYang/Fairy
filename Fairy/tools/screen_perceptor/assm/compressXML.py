@@ -96,6 +96,36 @@ def clean_remove_true_or_non_empty_attributes(node):
     for child in node:
         clean_remove_true_or_non_empty_attributes(child)
 
+def add_bounds_center_attribute(node):
+    """
+    给每个包含 bounds 属性的节点添加一个 center 属性，表示其中心点坐标。
+    假设 bounds 格式为 "[left, top][right, bottom]"。
+    """
+    bounds = node.attrib.get("bounds", "")
+    if bounds:
+        try:
+            # 假设bounds为 "[left, top][right, bottom]"
+            # 去掉方括号并按 '][' 分割
+            bounds_values = bounds.strip("[]").split("][")
+
+            if len(bounds_values) == 2:
+                # 解析左上和右下坐标
+                left_top = bounds_values[0].split(",")
+                right_bottom = bounds_values[1].split(",")
+
+                if len(left_top) == 2 and len(right_bottom) == 2:
+                    left, top = map(int, left_top)
+                    right, bottom = map(int, right_bottom)
+
+                    # 计算中心点坐标
+                    center_x = (left + right) / 2
+                    center_y = (top + bottom) / 2
+                    node.attrib["center"] = f"[{center_x},{center_y}]"
+        except ValueError:
+            pass  # 如果解析失败，忽略该节点
+    for child in node:
+        add_bounds_center_attribute(child)
+
 
 def compressxml(input_path, output_path):
     tree = ET.parse(input_path)
@@ -112,6 +142,9 @@ def compressxml(input_path, output_path):
 
     # 清理 true 或非空属性
     clean_remove_true_or_non_empty_attributes(merged_root)
+
+    # 添加 bounds 的 center 属性
+    add_bounds_center_attribute(merged_root)
 
     new_tree = ET.ElementTree(merged_root)
 

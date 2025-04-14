@@ -8,7 +8,8 @@ from Citlali.core.agent import Agent
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
-from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenPerceptionInfo, ActionInfo, UserInteractionInfo
+from Fairy.fairy_config import FairyConfig
+from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo, UserInteractionInfo
 from Fairy.memory.long_time_memory_manager import LongMemoryCallType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
@@ -16,14 +17,14 @@ from Fairy.type import EventType, EventStatus, CallType
 
 
 class AppPlannerAgent(Agent):
-    def __init__(self, runtime, model_client) -> None:
+    def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
             content="You are a helpful AI assistant for operating mobile phones. Your goal is to verify whether the last action produced the expected behavior, to keep track of the progress and devise high-level plans to achieve the user's requests. Think as if you are a human user operating the phone.",
             type="SystemMessage")]
-        super().__init__(runtime, "AppPlannerAgent", model_client, system_messages)
+        super().__init__(runtime, "AppPlannerAgent", config.model_client, system_messages)
 
         self.instruction_tips = None
-
+        self.non_visual_mode = config.non_visual_mode
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
               listen_filter=lambda msg: msg.event == EventType.ScreenPerception and msg.status == EventStatus.DONE)
@@ -40,7 +41,7 @@ class AppPlannerAgent(Agent):
             await self.on_plan_next(message, message_context)
 
     async def on_plan_init(self, message: EventMessage, message_context):
-        logger.info("[Plan(INIT)] TASK in progress...")
+        logger.bind(log_tag="fairy_sys").info("[Plan(INIT)] TASK in progress...")
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (StartScreenPerception)
         memory = await (await self.call(
             "ShortTimeMemoryManager",
@@ -62,18 +63,27 @@ class AppPlannerAgent(Agent):
         self.instruction_tips = long_memory[LongMemoryCallType.GET_Plan_Tips]
 
         # 构建Prompt
+        images = []
+        if not self.non_visual_mode:
+            images.append(current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file())
+            screenshot_prompt = "The attached image is a screenshots of your phone to show the current state"
+        else:
+            screenshot_prompt = "The following text description (e.g. JSON or XML) is converted from a screenshots of your phone to show the current state"
+
         plan_event_content, reflection_event_content = await self.request_llm(
-            self.build_init_prompt(instruction_memory),
-            [
-                current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file()
-            ]
+            self.build_init_prompt(
+                instruction_memory,
+                current_action_memory[ActionMemoryType.StartScreenPerception],
+                screenshot_prompt
+            ),
+            images=images
         )
         # 发布Plan事件
         await self.publish("app_channel", EventMessage(EventType.Plan, EventStatus.DONE, plan_event_content))
-        logger.info("[Plan(INIT)] TASK completed.")
+        logger.bind(log_tag="fairy_sys").info("[Plan(INIT)] TASK completed.")
 
     async def on_plan_next(self, message: EventMessage, message_context):
-        logger.info("[Plan] TASK in progress...")
+        logger.bind(log_tag="fairy_sys").info("[Plan] TASK in progress...")
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, Action, StartScreenPerception, EndScreenPerception)\KeyInfo
         memory = await (await self.call(
             "ShortTimeMemoryManager",
@@ -88,6 +98,14 @@ class AppPlannerAgent(Agent):
         key_info_memory = memory[ShortMemoryCallType.GET_Key_Info]
 
         # 构建Prompt
+        images = []
+        if not self.non_visual_mode:
+            images.append(current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file())
+            images.append(current_action_memory[ActionMemoryType.EndScreenPerception].screenshot_file_info.get_screenshot_Image_file())
+            screenshot_prompt = "The two attached images are two screenshots of your phone before and after your last action to reveal the change in status"
+        else:
+            screenshot_prompt = "The following two text descriptions (e.g. JSON or XML) are converted from two screenshots of your phone before and after your last action to reveal the change in status"
+
         plan_event_content, reflection_event_content = await self.request_llm(
             self.build_prompt(
                 instruction_memory,
@@ -96,12 +114,11 @@ class AppPlannerAgent(Agent):
                 current_action_memory[ActionMemoryType.ActionResult],
                 current_action_memory[ActionMemoryType.StartScreenPerception],
                 current_action_memory[ActionMemoryType.EndScreenPerception],
-                key_info_memory
+                key_info_memory,
+                screenshot_prompt
             ),
-            [
-                current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file(),
-                current_action_memory[ActionMemoryType.EndScreenPerception].screenshot_file_info.get_screenshot_Image_file()
-            ]
+
+            images=images
         )
 
         # 发布Reflection事件
@@ -113,19 +130,19 @@ class AppPlannerAgent(Agent):
             await self.publish("app_channel", EventMessage(EventType.Plan, EventStatus.DONE, plan_event_content))
         else:
             await self.publish("app_channel", EventMessage(EventType.TaskFinish, EventStatus.CREATED))
-        logger.info("[Plan] TASK completed.")
+        logger.bind(log_tag="fairy_sys").info("[Plan] TASK completed.")
 
     @staticmethod
     def is_finished_action(progress_info: ProgressInfo, action_info: ActionInfo) -> bool:
         if progress_info.action_result == "A" and len(action_info.actions) > 0 and action_info.actions[0]['name'] == "Finish":
-            logger.info("All requirements in the user's Instruction have been completed.")
+            logger.bind(log_tag="fairy_sys").info("All requirements in the user's Instruction have been completed.")
             return True
         return False
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
               listen_filter=lambda msg: msg.event == EventType.UserInteraction and msg.status == EventStatus.DONE)
     async def on_plan_after_user_interaction(self, message: EventMessage, message_context):
-        logger.info("[Plan(UserInteraction)] TASK in progress...")
+        logger.bind(log_tag="fairy_sys").info("[Plan(UserInteraction)] TASK in progress...")
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, StartScreenPerception)
         memory = await (await self.call(
             "ShortTimeMemoryManager",
@@ -139,23 +156,36 @@ class AppPlannerAgent(Agent):
         current_action_memory = memory[ShortMemoryCallType.GET_Current_Action_Memory]
 
         # 构建Prompt
+        images = []
+        if not self.non_visual_mode:
+            images.append(current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file())
+            screenshot_prompt = "The attached image is a screenshots of your phone to show the current state"
+        else:
+            screenshot_prompt = "The following text description (e.g. JSON or XML) is converted from a screenshots of your phone to show the current state"
+
         plan_event_content, reflection_event_content = await self.request_llm(
             self.build_after_user_interaction_prompt(
                 instruction_memory,
                 current_action_memory[ActionMemoryType.Plan],
                 message.event_content,
+                current_action_memory[ActionMemoryType.StartScreenPerception],
+                screenshot_prompt
             ),
-            [
-                current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file(),
-            ]
+            images=images
         )
         await self.publish("app_channel", EventMessage(EventType.Plan, EventStatus.DONE, plan_event_content))
-        logger.info("[Plan(UserInteraction)] TASK completed.")
+        logger.bind(log_tag="fairy_sys").info("[Plan(UserInteraction)] TASK completed.")
 
-    def build_init_prompt(self, instruction) -> str:
+    def build_init_prompt(self, instruction, current_screen_perception_info: ScreenInfo, screenshot_prompt) -> str:
         prompt = f"---\n"\
                  f"- Instruction: {instruction}\n"\
                  f"\n"
+
+        prompt += f"---\n"
+        prompt += current_screen_perception_info.perception_infos.get_screen_info_note_prompt(screenshot_prompt) # Call this function to supplement the prompt "Size of the Image and Additional Information".
+        prompt += f"\n"
+
+        prompt += current_screen_perception_info.perception_infos.get_screen_info_prompt() # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
 
         prompt += f"---\n"\
                   f"Think step by step and make an high-level plan to achieve the user's instruction. If the request is complex, break it down into sub-goals. If the request involves exploration, include concrete sub-goals to quantify the investigation steps. The screenshot displays the starting state of the phone.\n"\
@@ -181,9 +211,10 @@ class AppPlannerAgent(Agent):
                      plan_info: PlanInfo,
                      action_info: ActionInfo,
                      progress_info: ProgressInfo,
-                     previous_screen_perception_info: ScreenPerceptionInfo,
-                     current_screen_perception_info: ScreenPerceptionInfo,
-                     key_infos: list) -> str:
+                     previous_screen_perception_info: ScreenInfo,
+                     current_screen_perception_info: ScreenInfo,
+                     key_infos: list,
+                     screenshot_prompt: str) -> str:
         prompt = f"---\n"\
                  f"The Executor Agent has just finished executing according to your previous plan, which is the sub-goal, action, and expected results of this execution:\n"\
                  f"- Sub-goal: {plan_info.current_sub_goal}\n"\
@@ -192,7 +223,7 @@ class AppPlannerAgent(Agent):
                  f"\n"
 
         prompt += f"---\n"
-        prompt += previous_screen_perception_info.perception_infos.get_screen_info_note_prompt("The two attached images are two screenshots of your phone before and after your last action to reveal the change in status") # Call this function to supplement the prompt "Size of the Image and Additional Information".
+        prompt += previous_screen_perception_info.perception_infos.get_screen_info_note_prompt(screenshot_prompt) # Call this function to supplement the prompt "Size of the Image and Additional Information".
         prompt += f"\n"
 
         prompt += previous_screen_perception_info.perception_infos.get_screen_info_prompt("before the Action") # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
@@ -237,10 +268,12 @@ class AppPlannerAgent(Agent):
         return prompt
 
     def build_after_user_interaction_prompt(self,
-                     instruction,
-                     plan_info: PlanInfo,
-                     user_interaction_info: UserInteractionInfo,
-                     ) -> str:
+                                            instruction,
+                                            plan_info: PlanInfo,
+                                            user_interaction_info: UserInteractionInfo,
+                                            current_screen_perception_info: ScreenInfo,
+                                            screenshot_prompt:str
+                                            ) -> str:
         prompt = f"---\n"\
                  f"The User Interactor Agent has just finished interacting with the user as you had previously planned, and this is the user interaction type and result:\n"\
                  f"- User Interaction Type: {plan_info.user_interaction_type}\n"\
@@ -256,6 +289,12 @@ class AppPlannerAgent(Agent):
 
         prompt += f"The Instruction has been updated to: {instruction}\n"\
                   f"\n"
+
+        prompt += f"---\n"
+        prompt += current_screen_perception_info.perception_infos.get_screen_info_note_prompt(screenshot_prompt) # Call this function to supplement the prompt "Size of the Image and Additional Information".
+        prompt += f"\n"
+
+        prompt += current_screen_perception_info.perception_infos.get_screen_info_prompt() # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
 
         prompt += f"---\n"\
                   f"Please follow the steps below to perform the action:\n" \

@@ -38,7 +38,8 @@ class MessageManager:
         return reply_callback if message_type is MessageType.REQUEST else None
 
     async def on_message(self, message_parcel):
-        logger.debug("HANDLE MESSAGE: {}", message_parcel)
+        logger.bind(log_tag="citlali_sys").debug("PROCESSING MESSAGE INFO: {}", message_parcel)
+        logger.bind(log_tag="citlali_sys").bind(log_tag="AgentPrompt").debug("PROCESSING MESSAGE: {}", message_parcel.message)
         match message_parcel.message_context.type:
             case MessageType.REQUEST:
                 asyncio.create_task(self._call(message_parcel))

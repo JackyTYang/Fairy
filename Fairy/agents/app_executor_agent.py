@@ -8,31 +8,33 @@ from Citlali.core.agent import Agent
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
-from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenPerceptionInfo, ActionInfo
+from Fairy.fairy_config import FairyConfig
+from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
 from Fairy.memory.long_time_memory_manager import LongMemoryCallType
 from Fairy.memory.short_time_memory_manager import ActionMemoryType, ShortMemoryCallType
 from Fairy.message_entity import EventMessage, CallMessage
 from Fairy.type import EventStatus, EventType, CallType
-from Fairy.tools.action_type import ATOMIC_ACTION_SIGNITURES, AtomicActionType
+from Fairy.tools.mobile_controller.action_type import ATOMIC_ACTION_SIGNITURES, AtomicActionType
 
 
 class AppExecutorAgent(Agent):
-    def __init__(self, runtime, model_client) -> None:
+    def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
             content="You are a helpful AI assistant for operating mobile phones. Your goal is to choose the correct actions to complete the user's instruction. Think as if you are a human user operating the phone.",
             type="SystemMessage")]
-        super().__init__(runtime, "AppExecutorAgent", model_client, system_messages)
+        super().__init__(runtime, "AppExecutorAgent", config.model_client, system_messages)
+        self.non_visual_mode = config.non_visual_mode
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
               listen_filter=lambda msg: msg.event == EventType.Plan and msg.status == EventStatus.DONE)
     async def on_execute_plan(self, message: EventMessage, message_context):
 
-        logger.info("[Execute Plan] TASK in progress...")
+        logger.bind(log_tag="fairy_sys").info("[Execute Plan] TASK in progress...")
 
         # 如果当前Plan需要用户交互，则跳过
         print(message.event_content.user_interaction_type)
         if message.event_content.user_interaction_type != 0:
-            logger.info("[Execute Plan] User interaction required, skipped")
+            logger.bind(log_tag="fairy_sys").info("[Execute Plan] User interaction required, skipped")
             return
 
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, StartScreenPerception)\Historical Action Memory (Action, ActionResult)\KeyInfo
@@ -74,6 +76,10 @@ class AppExecutorAgent(Agent):
             ))
             execution_tips = long_memory[LongMemoryCallType.GET_Execution_Tips]
 
+        images = []
+        if not self.non_visual_mode:
+            images.append(current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file())
+
         event_content = await self.request_llm(
             self.build_prompt(
                 instruction_memory,
@@ -84,16 +90,16 @@ class AppExecutorAgent(Agent):
                 execution_tips,
                 key_info_memory,
             ),
-            [current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file()]
+            images=images
         )
 
         await self.publish("app_channel", EventMessage(EventType.ActionExecution, EventStatus.CREATED, event_content))
-        logger.info("[Execute Plan] TASK completed.")
+        logger.bind(log_tag="fairy_sys").info("[Execute Plan] TASK completed.")
 
     @staticmethod
     def build_prompt(instruction,
                      plan_info: PlanInfo,
-                     current_screen_perception_info: ScreenPerceptionInfo,
+                     current_screen_perception_info: ScreenInfo,
                      action_info_list: List[ActionInfo],
                      progress_info_list: List[ProgressInfo],
                      execution_tips: str,

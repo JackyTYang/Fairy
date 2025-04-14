@@ -13,5 +13,5 @@ class WorkerKeeper:
         if worker_name in self._workers:
             return self._workers[worker_name]
         else:
-            logger.error(f"Worker {worker_name} not found")
+            logger.bind(log_tag="citlali_sys").error(f"Worker {worker_name} not found")
             return None

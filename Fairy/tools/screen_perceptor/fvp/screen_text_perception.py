@@ -15,7 +15,7 @@ class ScreenTextPerception:
         self.ocr_recognition = pipeline(Tasks.ocr_recognition, model=ocr_recognition_model)
 
     def get_text_perception(self, screenshot_file_info):
-        logger.info("[Text Perception] TASK (including [Text Detection] and [Text Recognition]) in progress...")
+        logger.bind(log_tag="fairy_sys").info("[Text Perception] TASK (including [Text Detection] and [Text Recognition]) in progress...")
 
         image = cv2.imread(screenshot_file_info.get_screenshot_fullpath())
         text, coordinates = self._ocr(image)
@@ -35,11 +35,11 @@ class ScreenTextPerception:
         text_data = []
         coordinate = []
 
-        logger.info("[Text Detection] TASK in progress...")
+        logger.bind(log_tag="fairy_sys").info("[Text Detection] TASK in progress...")
         det_result = self.ocr_detection(image)['polygons']
-        logger.info("[Text Detection] TASK completed.")
+        logger.bind(log_tag="fairy_sys").info("[Text Detection] TASK completed.")
 
-        logger.info("[Text Recognition] TASK in progress...")
+        logger.bind(log_tag="fairy_sys").info("[Text Recognition] TASK in progress...")
         for i in range(det_result.shape[0]):
             pts = self._order_point(det_result[i])
             image_crop = self._crop_image(image, pts)
@@ -56,8 +56,8 @@ class ScreenTextPerception:
             coordinate.append(box)
 
         else:
-            logger.info("[Text Recognition] TASK completed.")
-            logger.info("[Text Perception] TASK (including [Text Detection] and [Text Recognition]) completed.")
+            logger.bind(log_tag="fairy_sys").info("[Text Recognition] TASK completed.")
+            logger.bind(log_tag="fairy_sys").info("[Text Perception] TASK (including [Text Detection] and [Text Recognition]) completed.")
             return text_data, coordinate
 
     @staticmethod

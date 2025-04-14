@@ -4,7 +4,7 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import Worker, listener
 from Fairy.info_entity import ActionInfo, ProgressInfo, UserInteractionInfo
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.tools.action_type import AtomicActionType
+from Fairy.tools.mobile_controller.action_type import AtomicActionType
 from Fairy.type import EventType, EventStatus, CallType
 from loguru import logger
 
@@ -226,9 +226,9 @@ class ShortTimeMemoryManager(Worker):
         for memory_type in memory_request:
             if self.current_memory[MemoryType.Actions][-1][memory_type] is None:
                 self.current_memory_ready_event[memory_type] = asyncio.Event()
-                logger.debug(f"Waiting for memory {memory_type} to be ready...")
+                logger.bind(log_tag="fairy_sys").debug(f"Waiting for memory {memory_type} to be ready...")
                 await self.current_memory_ready_event[memory_type].wait()
-                logger.debug(f"Memory {memory_type} is ready.")
+                logger.bind(log_tag="fairy_sys").debug(f"Memory {memory_type} is ready.")
                 self.current_memory_ready_event.pop(memory_type)
         return self.current_memory[MemoryType.Actions][-1]
 

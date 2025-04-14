@@ -5,7 +5,7 @@ from typing import List, Dict
 
 from loguru import logger
 
-from Fairy.tools.action_type import AtomicActionType
+from Fairy.tools.mobile_controller.action_type import AtomicActionType
 from Fairy.utils.task_executor import TaskExecutor
 
 ATOMIC_ACTION_COMMAND = {
@@ -28,7 +28,7 @@ class AdbMobileController():
                 case AtomicActionType.Wait:
                     await asyncio.sleep(args["wait_time"])
                 case AtomicActionType.Finish:
-                    logger.info("All requirements in the user's Instruction have been completed.")
+                    logger.bind(log_tag="fairy_sys").info("All requirements in the user's Instruction have been completed.")
                 case _:
                     await self._run_command(atomic_action, ATOMIC_ACTION_COMMAND[atomic_action], args)
                     await asyncio.sleep(2) # Avoid screen not updating due to phone lag
@@ -54,7 +54,7 @@ class AdbMobileController():
     async def _run_command(self, action: AtomicActionType, command_builder, args):
         async def _command():
             command = command_builder(args)
-            logger.debug(f"Executing ADB command {action} : {command}")
+            logger.bind(log_tag="fairy_sys").debug(f"Executing ADB command {action} : {command}")
             result = subprocess.run(f"{self.adb_path} {command}", capture_output=True, text=True, shell=True)
             if result.returncode != 0:
                 raise RuntimeError(f"Error while executing ADB command: {result.stderr}")

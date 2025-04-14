@@ -13,9 +13,9 @@ class UserChat(Worker):
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
               listen_filter=lambda message: message.event == EventType.UserChat and message.status == EventStatus.CREATED)
     async def on_action_create(self, message: EventMessage, message_context):
-        logger.debug("Interacting with the user for further instruction...")
+        logger.bind(log_tag="fairy_sys").debug("Interacting with the user for further instruction...")
         user_response = input(message.event_content.action_instruction+"\n")
-        logger.debug(f"Further instructions have been obtained. Instruction：{user_response}")
+        logger.bind(log_tag="fairy_sys").debug(f"Further instructions have been obtained. Instruction：{user_response}")
 
         message.event_content.response = user_response
         await self.publish("app_channel", EventMessage(EventType.UserChat, EventStatus.DONE, message.event_content))

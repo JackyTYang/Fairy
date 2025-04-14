@@ -1,10 +1,9 @@
-import os
 from datetime import datetime
 from typing import List, Dict
 
 from Citlali.utils.image import Image
 from PIL import Image as PILImage
-from .tools.action_type import AtomicActionType
+from Fairy.tools.mobile_controller.action_type import AtomicActionType
 
 
 class ScreenFileInfo:
@@ -36,13 +35,15 @@ class ScreenFileInfo:
             img.save(self.get_screenshot_fullpath(), 'JPEG', quality=quality)
 
 
-class ScreenPerceptionInfo:
+class ScreenInfo:
     def __init__(self, screenshot_file_info: ScreenFileInfo, perception_infos):
         self.screenshot_file_info = screenshot_file_info
         self.perception_infos = perception_infos
 
     def __str__(self):
-        return f"ScreenPerceptionInfo: {self.perception_infos}"
+        return (f"\n -------------ScreenInfo-------------"
+                f"\n{self.perception_infos}"
+                f"\n -----------ScreenInfo END-----------")
 
 class PlanInfo:
     def __init__(self, plan_thought, overall_plan, current_sub_goal, user_interaction_type):

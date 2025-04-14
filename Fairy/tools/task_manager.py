@@ -25,7 +25,7 @@ class TaskManager(Worker):
     async def on_task_finish(self, message: EventMessage, message_context):
         last_task = self.task_list.pop()
         if len(self.task_list) == 0:
-            logger.critical("All tasks have been completed.")
+            logger.bind(log_tag="fairy_sys").critical("All tasks have been completed.")
         else:
             task_source = last_task["source"]
             match task_source:
@@ -51,5 +51,5 @@ class TaskManager(Worker):
                     # 构建子任务响应，交回UserInteractorAgent
                     await self.publish("app_channel", EventMessage(EventType.TaskFinish, EventStatus.DONE, UserInteractionInfo("C", previous_instruction["thought"],  previous_instruction["ori"], previous_key_info)))
                 case _:
-                    logger.error(f"Unknown task source: {task_source}")
+                    logger.bind(log_tag="fairy_sys").error(f"Unknown task source: {task_source}")
                     return

@@ -1,10 +1,9 @@
 import asyncio
-from re import escape
 from typing import List, Dict
 
 from loguru import logger
 
-from Fairy.tools.action_type import AtomicActionType
+from Fairy.tools.mobile_controller.action_type import AtomicActionType
 import uiautomator2 as u2
 
 keycode_list = {
@@ -24,7 +23,7 @@ class UiAutomatorMobileController():
             await asyncio.sleep(2) # Avoid screen not updating due to phone lag
 
     async def _run_command(self, action: AtomicActionType, args):
-        logger.debug(f"Executing UI Automator Control Command {action} (args: {args})")
+        logger.bind(log_tag="fairy_sys").debug(f"Executing UI Automator Control Command {action} (args: {args})")
         match action:
             case AtomicActionType.Swipe:
                 self.dev.swipe(args['x1'],args['y1'],args['x2'],args['y2'],args['duration'])
@@ -39,7 +38,7 @@ class UiAutomatorMobileController():
             case AtomicActionType.KeyEvent:
                 self.dev.press(keycode_list[args['type']])
             case AtomicActionType.Finish:
-                logger.info("All requirements in the user's Instruction have been completed.")
+                logger.bind(log_tag="fairy_sys").info("All requirements in the user's Instruction have been completed.")
             case AtomicActionType.Wait:
                 await asyncio.sleep(args["wait_time"])
 

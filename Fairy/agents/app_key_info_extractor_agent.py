@@ -7,23 +7,26 @@ from Citlali.core.agent import Agent
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
-from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenPerceptionInfo, ActionInfo
+from Fairy.fairy_config import FairyConfig
+from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
 from Fairy.type import EventType, EventStatus, CallType
 
 
 class KeyInfoExtractorAgent(Agent):
-    def __init__(self, runtime, model_client) -> None:
+    def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
             content="You are a helpful AI assistant for operating mobile phones. Your goal is to take notes of important content relevant to the user's request.",
             type="SystemMessage")]
-        super().__init__(runtime, "KeyInfoExtractorAgent", model_client, system_messages)
+        super().__init__(runtime, "KeyInfoExtractorAgent", config.model_client, system_messages)
+        self.non_visual_mode = config.non_visual_mode
+
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
               listen_filter=lambda msg: msg.event == EventType.Reflection and msg.status == EventStatus.DONE)
     async def on_key_info_extract(self, message:EventMessage , message_context):
-        logger.debug("[Extract KeyInfo] TASK in progress...")
+        logger.bind(log_tag="fairy_sys").debug("[Extract KeyInfo] TASK in progress...")
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, EndScreenPerception)\KeyInfo
         memory = await (await self.call(
             "ShortTimeMemoryManager",
@@ -38,6 +41,10 @@ class KeyInfoExtractorAgent(Agent):
         key_info_memory = memory[ShortMemoryCallType.GET_Key_Info]
 
         # 构建Prompt
+        images = []
+        if not self.non_visual_mode:
+            images.append(current_action_memory[ActionMemoryType.EndScreenPerception].screenshot_file_info.get_screenshot_Image_file())
+
         key_info_extraction_event_content = await self.request_llm(
             self.build_prompt(
                 instruction_memory,
@@ -45,19 +52,17 @@ class KeyInfoExtractorAgent(Agent):
                 current_action_memory[ActionMemoryType.EndScreenPerception],
                 key_info_memory
             ),
-            [
-                current_action_memory[ActionMemoryType.EndScreenPerception].screenshot_file_info.get_screenshot_Image_file(), # CurrentScreenImageFile
-            ]
+            images=images
         )
 
         # 发布Plan事件
         await self.publish("app_channel", EventMessage(EventType.KeyInfoExtraction, EventStatus.DONE, key_info_extraction_event_content))
-        logger.info("[Extract KeyInfo] TASK completed.")
+        logger.bind(log_tag="fairy_sys").info("[Extract KeyInfo] TASK completed.")
 
     @staticmethod
     def build_prompt(instruction,
                      plan_info: PlanInfo,
-                     current_screen_perception_info: ScreenPerceptionInfo,
+                     current_screen_perception_info: ScreenInfo,
                      key_infos: list) -> str:
         prompt = f"---\n"\
                  f"The Executor Agent has just completed execution according to the Planner Agent's plan and the result was successful/partially successful, which is the instruction, overall plan, sub-goals:\n"

@@ -14,17 +14,17 @@ class TaskExecutor:
             try:
                return await func()
             except Exception as e:
-                logger.error(f"{self.task_name} execution failed, error details: {str(e)}.")
+                logger.bind(log_tag="fairy_sys").error(f"{self.task_name} execution failed, error details: {str(e)}.")
                 err_flag = True
 
             if not err_flag:
                 break
 
             elif i < self.retry_times:
-                logger.error(f"{self.task_name} retrying [{i}/{self.retry_times}] ...")
+                logger.bind(log_tag="fairy_sys").error(f"{self.task_name} retrying [{i}/{self.retry_times}] ...")
                 await asyncio.sleep(2)
                 continue
 
             elif i == self.retry_times:
-                logger.critical(f"{self.task_name} execution terminated, attempts exhausted.")
+                logger.bind(log_tag="fairy_sys").critical(f"{self.task_name} execution terminated, attempts exhausted.")
                 raise RuntimeError(f"{self.task_name} execution terminated, attempts exhausted.")

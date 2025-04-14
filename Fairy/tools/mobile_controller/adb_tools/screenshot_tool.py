@@ -11,7 +11,7 @@ class AdbMobileScreenshot():
     def __init__(self, config):
         self.adb_path = config.get_adb_path()
         # Path of desktop local temporary storage
-        self.screenshot_temp_path = config.screenshot_temp_path
+        self.screenshot_temp_path = config.get_screenshot_temp_path()
         # Path of mobile phone screenshot
         self.screenshot_phone_path = config.screenshot_phone_path
         self.screenshot_filename = config.screenshot_filename
@@ -29,7 +29,7 @@ class AdbMobileScreenshot():
             f"{self.adb_path} shell rm {screenshot_file}"]
 
         async def _get_screen():
-            logger.info("[Get Screenshot] TASK in progress...")
+            logger.bind(log_tag="fairy_sys").info("[Get Screenshot] TASK in progress...")
             for command in commands:
                 result = subprocess.run(command, capture_output=True, text=True, shell=True)
                 if result.returncode != 0:
@@ -38,5 +38,5 @@ class AdbMobileScreenshot():
 
         await TaskExecutor("Get_Screenshot", None).run(_get_screen)
 
-        logger.info("[Get Screenshot] TASK completed.")
+        logger.bind(log_tag="fairy_sys").info("[Get Screenshot] TASK completed.")
         return screenshot_file_info, None

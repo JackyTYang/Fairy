@@ -1,8 +1,8 @@
 from PIL import Image
 
 from Fairy.info_entity import ScreenFileInfo
-from Fairy.tools.assm.entity import AdaptiveSemanticScreenModelingInfo
 from .compressXML import get_compress_xml
+from .entity import AdaptiveSemanticScreenModelingInfo
 
 
 class AdaptiveSemanticScreenModeling:

@@ -1,16 +1,14 @@
-class FineGrainedVisualPerceptionInfo:
-    def __init__(self, width, height, perception_infos):
-        self.width = width
-        self.height = height
-        self.infos = perception_infos
+from Fairy.tools.screen_perceptor.entity import ScreenPreceptionInfo
 
-        self.keyboard_status = False
+
+class FineGrainedVisualPerceptionInfo(ScreenPreceptionInfo):
+    def __init__(self, width, height, perception_infos):
+
+        keyboard_status = False
         for perception_info in perception_infos:
             if 'ADB Keyboard' in perception_info['text']:
-                self.keyboard_status = True
-
-    def __str__(self):
-        return f"FineGrainedVisualPerceptionInfo: {self.width}, {self.height}, {self.infos}, {self.keyboard_status}"
+                keyboard_status = True
+        super().__init__(width, height, perception_infos, keyboard_status)
 
     def get_screen_info_prompt(self, extra_suffix=None):
         prompt = f"- Screen Information {extra_suffix}: \n"
@@ -18,6 +16,8 @@ class FineGrainedVisualPerceptionInfo:
             if clickable_info['text'] != "" and clickable_info['text'] != "icon: None" and clickable_info[
                 'coordinates'] != (0, 0):
                 prompt += f"{clickable_info['coordinates']}; {clickable_info['text']}\n"
+
+        prompt += f"\n"
 
         prompt += f"- Keyboard Status {extra_suffix}: "\
                   f"{'The keyboard has been activated and you can type.' if self.keyboard_status else 'The keyboard has not been activated and you can not type.'}\n"\

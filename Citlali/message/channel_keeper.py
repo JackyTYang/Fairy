@@ -22,7 +22,7 @@ class ChannelKeeper:
         if channel in self._channels:
             return self._channels[channel]
         else:
-            logger.error(f"Channel {channel} not found")
+            logger.bind(log_tag="citlali_sys").error(f"Channel {channel} not found")
             return None
 
     def _build_publish_task(self, message, message_content, channel):

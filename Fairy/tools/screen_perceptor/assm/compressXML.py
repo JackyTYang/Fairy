@@ -1,26 +1,19 @@
 import os
 import xml.etree.ElementTree as ET
+import re
 
-# 定义布尔属性列表
+# 布尔属性
 BOOL_ATTRS = {
     "checkable", "checked", "clickable", "enabled", "focusable",
     "focused", "scrollable", "long-clickable", "password", "selected"
 }
 
-# 配置：哪些布尔属性即使为 "false" 也保留
-KEEP_FALSE_BOOLEAN_ATTRS = {"enabled"}  # 例如保留 "enabled", "focusable" 为 false 时的属性
-
-# 配置：哪些非布尔属性为空时保留
-KEEP_EMPTY_STRING_ATTRS = {"package"}  # 例如保留空的 "resource-id", "text" 等
-
-# 配置：哪些属性即使为 "true" 或不为空也不保留
-REMOVE_IF_TRUE_OR_NON_EMPTY = {"package"}  # 即使这些属性为 "true" 或非空，也不保留
+KEEP_FALSE_BOOLEAN_ATTRS = {""}
+KEEP_EMPTY_STRING_ATTRS = {"package"}
+REMOVE_IF_TRUE_OR_NON_EMPTY = {"package", "class", "index"}
 
 
 def merge_attributes(parent_attrib, child_attrib):
-    """
-    合并父节点与子节点的属性（不删除 false，统一在后处理）。
-    """
     merged = child_attrib.copy()
     for key, p_val in parent_attrib.items():
         if key in BOOL_ATTRS:
@@ -34,9 +27,6 @@ def merge_attributes(parent_attrib, child_attrib):
 
 
 def merge_single_child_nodes(node):
-    """
-    合并仅包含单一子节点的结构，提升子节点。
-    """
     children = list(node)
     for child in children:
         merged_child = merge_single_child_nodes(child)
@@ -56,9 +46,6 @@ def merge_single_child_nodes(node):
 
 
 def clean_false_attributes(node):
-    """
-    遍历所有节点，删除值为 false 且不在保留列表中的布尔属性。
-    """
     keys_to_delete = [
         k for k, v in node.attrib.items()
         if k in BOOL_ATTRS and v.lower() == "false" and k not in KEEP_FALSE_BOOLEAN_ATTRS
@@ -70,9 +57,6 @@ def clean_false_attributes(node):
 
 
 def clean_empty_attributes(node):
-    """
-    遍历所有节点，删除值为空的属性（只删除空属性且不在保留列表中）。
-    """
     keys_to_delete = [
         k for k, v in node.attrib.items()
         if not v.strip() and k not in KEEP_EMPTY_STRING_ATTRS
@@ -84,9 +68,6 @@ def clean_empty_attributes(node):
 
 
 def clean_remove_true_or_non_empty_attributes(node):
-    """
-    遍历所有节点，删除即使为 true 或非空的属性，如果在 REMOVE_IF_TRUE_OR_NON_EMPTY 配置项中。
-    """
     keys_to_delete = [
         k for k, v in node.attrib.items()
         if k in REMOVE_IF_TRUE_OR_NON_EMPTY and (v.lower() == "true" or v.strip())
@@ -96,98 +77,96 @@ def clean_remove_true_or_non_empty_attributes(node):
     for child in node:
         clean_remove_true_or_non_empty_attributes(child)
 
+
 def add_bounds_center_attribute(node):
-    """
-    给每个包含 bounds 属性的节点添加一个 center 属性，表示其中心点坐标。
-    假设 bounds 格式为 "[left, top][right, bottom]"。
-    """
     bounds = node.attrib.get("bounds", "")
     if bounds:
         try:
-            # 假设bounds为 "[left, top][right, bottom]"
-            # 去掉方括号并按 '][' 分割
             bounds_values = bounds.strip("[]").split("][")
-
             if len(bounds_values) == 2:
-                # 解析左上和右下坐标
                 left_top = bounds_values[0].split(",")
                 right_bottom = bounds_values[1].split(",")
-
                 if len(left_top) == 2 and len(right_bottom) == 2:
                     left, top = map(int, left_top)
                     right, bottom = map(int, right_bottom)
-
-                    # 计算中心点坐标
                     center_x = (left + right) / 2
                     center_y = (top + bottom) / 2
                     node.attrib["center"] = f"[{center_x},{center_y}]"
         except ValueError:
-            pass  # 如果解析失败，忽略该节点
+            pass
     for child in node:
         add_bounds_center_attribute(child)
+
+
+def simplify_true_booleans(node):
+    keys_to_convert = []
+    keys_to_delete = []
+
+    for k, v in node.attrib.items():
+        if k in BOOL_ATTRS:
+            if v.lower() == "true":
+                keys_to_convert.append(k)
+            elif v.lower() == "false":
+                keys_to_delete.append(k)
+
+    for k in keys_to_delete:
+        del node.attrib[k]
+    for k in keys_to_convert:
+        node.attrib[k] = "__VALLESS__"  # 防止 ElementTree 报错
+
+    for child in node:
+        simplify_true_booleans(child)
+
+
+def tostring_with_valueless_true(node):
+    xml_str = ET.tostring(node, encoding='unicode')
+    # 替换 key="__VALLESS__" 为 key
+    xml_str = re.sub(r'\s+(\w+)="__VALLESS__"', r' \1', xml_str)
+    return xml_str
+
+
+# ✅ 新增：为了解析 val-less 形式的 XML，补全为 key="true"
+def fix_valueless_attributes_for_parsing(xml_str):
+    # 将 <node clickable> 替换为 <node clickable="true">
+    def replacer(match):
+        tag, attrs = match.groups()
+        fixed_attrs = re.sub(r'\s+(\w+)(?=\s|>|/)', r' \1="true"', attrs)
+        return f"<{tag}{fixed_attrs}>"
+    return re.sub(r'<(\w+)((?:\s+\w+)+)\s*/?>', replacer, xml_str)
 
 
 def compressxml(input_path, output_path):
     tree = ET.parse(input_path)
     root = tree.getroot()
 
-    # 合并嵌套结构
     merged_root = merge_single_child_nodes(root)
-
-    # 清理 false 属性
     clean_false_attributes(merged_root)
-
-    # 清理空属性
     clean_empty_attributes(merged_root)
-
-    # 清理 true 或非空属性
     clean_remove_true_or_non_empty_attributes(merged_root)
-
-    # 添加 bounds 的 center 属性
+    simplify_true_booleans(merged_root)
     add_bounds_center_attribute(merged_root)
 
-    new_tree = ET.ElementTree(merged_root)
-
-    try:
-        ET.indent(new_tree, space="    ")
-    except Exception as e:
-        print("Indent function is not available:", e)
-
+    compressed_str = tostring_with_valueless_true(merged_root)
     file_name = os.path.basename(input_path)
     output_file = os.path.join(output_path, file_name)
-    new_tree.write(output_file, encoding="UTF-8", xml_declaration=True)
-    print(f"处理完成，结果已保存到：{output_file}")
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(compressed_str)
+    print(f"✅ 处理完成，结果已保存到：{output_file}")
 
 
 def get_compress_xml(ui_hierarchy_xml):
     root = ET.fromstring(ui_hierarchy_xml)
-
-    # 合并嵌套结构
     merged_root = merge_single_child_nodes(root)
-
-    # 清理 false 属性
     clean_false_attributes(merged_root)
-
-    # 清理空属性
     clean_empty_attributes(merged_root)
-
-    # 清理 true 或非空属性
     clean_remove_true_or_non_empty_attributes(merged_root)
-
-    new_tree = ET.ElementTree(merged_root)
-
-    try:
-        ET.indent(new_tree, space="    ")
-    except Exception as e:
-        print("Indent function is not available:", e)
-
-    xml_bytes = ET.tostring(merged_root, encoding='utf-8')
-    xml_str = xml_bytes.decode('utf-8')
-    return xml_str
+    simplify_true_booleans(merged_root)
+    add_bounds_center_attribute(merged_root)
+    return tostring_with_valueless_true(merged_root)
 
 
 def parse_bounds(bounds_str):
-    """将 '[x1,y1][x2,y2]' 字符串转为整数坐标元组 (x1, y1, x2, y2)"""
     try:
         parts = bounds_str.strip("[]").split("][")
         (x1, y1) = map(int, parts[0].split(","))
@@ -198,26 +177,11 @@ def parse_bounds(bounds_str):
 
 
 def is_keyboard_active(ui_hierarchy_xml, screen_height, known_ime_packages=None):
-    """
-    判断给定的 UI XML 是否显示输入键盘（半通用逻辑）
-
-    参数:
-        xml_path (str): XML 文件路径（UI dump）
-        known_ime_packages (list[str], optional): 输入法包名前缀列表
-        screen_height (int): 屏幕高度
-
-    返回:
-        bool: True = 键盘激活，False = 未激活
-    """
     if known_ime_packages is None:
         known_ime_packages = [
-            "com.google.android.inputmethod",  # Gboard
-            "com.sohu.inputmethod",  # 搜狗
-            "com.baidu.input",  # 百度
-            "com.huawei.ime",  # 华为
-            "com.nolan.inputmethod",  # 小鹤双拼
-            "com.iflytek.inputmethod",  # 讯飞
-            "com.tencent.qqpinyin",  # QQ输入法
+            "com.google.android.inputmethod", "com.sohu.inputmethod",
+            "com.baidu.input", "com.huawei.ime", "com.nolan.inputmethod",
+            "com.iflytek.inputmethod", "com.tencent.qqpinyin"
         ]
 
     try:
@@ -233,16 +197,11 @@ def is_keyboard_active(ui_hierarchy_xml, screen_height, known_ime_packages=None)
         bounds_str = node.attrib.get("bounds", "")
         x1, y1, x2, y2 = parse_bounds(bounds_str)
 
-        # 条件1：资源 ID 属于已知输入法包，且可见且靠近屏幕底部
         if any(res_id.startswith(pkg) for pkg in known_ime_packages):
             if visible and y2 >= screen_height * 0.85:
                 return True
-
-        # 条件2：系统输入法导航栏出现（Android 11+ 及以上）
         if res_id == "android:id/input_method_nav_buttons" and visible:
             return True
-
-        # 条件3：某些 class 含 keyboard 或 ime 且位置接近底部
         if "keyboard" in class_name.lower() or "ime" in class_name.lower():
             if visible and y2 >= screen_height * 0.85:
                 return True
@@ -252,12 +211,13 @@ def is_keyboard_active(ui_hierarchy_xml, screen_height, known_ime_packages=None)
 
 if __name__ == "__main__":
     input_xml = "window_dump7.xml"
-    output_dir = "compressXML"
-    compressxml(input_xml, output_dir)
+    output_dir = ""
     # 默认以 'r'（只读）模式打开，编码为系统默认（通常 utf-8）
-    with open("compressXML/window_dump7.xml", "r", encoding="utf-8") as f:
+    with open("window_dump7.xml", "r", encoding="utf-8") as f:
         content = f.read()  # 读取整个文件为字符串
     if is_keyboard_active(content,2400):
         print("✅ 输入键盘当前已激活")
     else:
         print("❌ 输入键盘未激活")
+
+    compressxml(input_xml, output_dir)

@@ -46,11 +46,12 @@ class ScreenInfo:
                 f"\n -----------ScreenInfo END-----------")
 
 class PlanInfo:
-    def __init__(self, plan_thought, overall_plan, current_sub_goal, user_interaction_type):
+    def __init__(self, plan_thought, overall_plan, current_sub_goal, user_interaction_type, user_interaction_thought):
         self.plan_thought = plan_thought
         self.overall_plan = overall_plan
         self.current_sub_goal = current_sub_goal
         self.user_interaction_type = user_interaction_type
+        self.user_interaction_thought = user_interaction_thought
 
     def __str__(self):
         return (f"\n -------------PlanInfo-------------"
@@ -58,6 +59,7 @@ class PlanInfo:
                 f"\n - Plan: {self.overall_plan}"
                 f"\n - Current Sub Goal: {self.current_sub_goal}"
                 f"\n - User Interaction Type: {self.user_interaction_type}"
+                f"\n - User Interaction Thought: {self.user_interaction_thought}"
                 f"\n -----------PlanInfo END-----------")
 
 class ActionInfo:

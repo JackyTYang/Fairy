@@ -44,13 +44,17 @@ class KeyInfoExtractorAgent(Agent):
         images = []
         if not self.non_visual_mode:
             images.append(current_action_memory[ActionMemoryType.EndScreenPerception].screenshot_file_info.get_screenshot_Image_file())
+            screenshot_prompt = "The attached image is a screenshots of your phone to show the current state"
+        else:
+            screenshot_prompt = "The following text description (e.g. JSON or XML) is converted from a screenshots of your phone to show the current state"
 
         key_info_extraction_event_content = await self.request_llm(
             self.build_prompt(
                 instruction_memory,
                 current_action_memory[ActionMemoryType.Plan],
                 current_action_memory[ActionMemoryType.EndScreenPerception],
-                key_info_memory
+                key_info_memory,
+                screenshot_prompt
             ),
             images=images
         )
@@ -63,7 +67,8 @@ class KeyInfoExtractorAgent(Agent):
     def build_prompt(instruction,
                      plan_info: PlanInfo,
                      current_screen_perception_info: ScreenInfo,
-                     key_infos: list) -> str:
+                     key_infos: list,
+                     screenshot_prompt: str) -> str:
         prompt = f"---\n"\
                  f"The Executor Agent has just completed execution according to the Planner Agent's plan and the result was successful/partially successful, which is the instruction, overall plan, sub-goals:\n"
 
@@ -72,7 +77,7 @@ class KeyInfoExtractorAgent(Agent):
                   f"- Sub-goal: {plan_info.current_sub_goal}\n" \
 
         prompt += f"---\n"
-        prompt += current_screen_perception_info.perception_infos.get_screen_info_note_prompt("The attached image is a screenshots of your phone to show the current state") # Call this function to supplement the prompt "Size of the Image and Additional Information".
+        prompt += current_screen_perception_info.perception_infos.get_screen_info_note_prompt(screenshot_prompt) # Call this function to supplement the prompt "Size of the Image and Additional Information".
         prompt += f"\n"
 
         prompt += current_screen_perception_info.perception_infos.get_screen_info_prompt() # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".

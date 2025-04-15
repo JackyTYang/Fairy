@@ -1,3 +1,5 @@
+import asyncio
+
 from loguru import logger
 
 from Fairy.info_entity import ScreenFileInfo
@@ -14,6 +16,8 @@ class UiAutomatorMobileScreenshot():
 
     async def get_screen(self):
         logger.bind(log_tag="fairy_sys").info("[Get Screenshot & UI Hierarchy] TASK in progress...")
+
+        await asyncio.sleep(5) # 避免速度过快导致屏幕内容没有完成加载
 
         screenshot_file_info = ScreenFileInfo(self.screenshot_temp_path, self.screenshot_filename, 'png')
         # get screenshot

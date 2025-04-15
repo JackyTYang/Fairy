@@ -3,8 +3,7 @@ from ..entity import ScreenPreceptionInfo
 
 
 class AdaptiveSemanticScreenModelingInfo(ScreenPreceptionInfo):
-    def __init__(self, width, height, perception_infos):
-        keyboard_status = is_keyboard_active(perception_infos, height)
+    def __init__(self, width, height, perception_infos,keyboard_status):
         super().__init__(width, height, perception_infos, keyboard_status)
 
     def get_screen_info_prompt(self, extra_suffix=None):

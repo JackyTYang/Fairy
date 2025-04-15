@@ -33,7 +33,7 @@ class AppExecutorAgent(Agent):
 
         # 如果当前Plan需要用户交互，则跳过
         print(message.event_content.user_interaction_type)
-        if message.event_content.user_interaction_type != 0:
+        if str(message.event_content.user_interaction_type) != "0":
             logger.bind(log_tag="fairy_sys").info("[Execute Plan] User interaction required, skipped")
             return
 
@@ -79,6 +79,9 @@ class AppExecutorAgent(Agent):
         images = []
         if not self.non_visual_mode:
             images.append(current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file())
+            screenshot_prompt = "The attached image is a screenshots of your phone to show the current state"
+        else:
+            screenshot_prompt = "The following text description (e.g. JSON or XML) is converted from a screenshots of your phone to show the current state"
 
         event_content = await self.request_llm(
             self.build_prompt(
@@ -89,6 +92,7 @@ class AppExecutorAgent(Agent):
                 historical_action_memory[ActionMemoryType.ActionResult],
                 execution_tips,
                 key_info_memory,
+                screenshot_prompt
             ),
             images=images
         )
@@ -103,7 +107,8 @@ class AppExecutorAgent(Agent):
                      action_info_list: List[ActionInfo],
                      progress_info_list: List[ProgressInfo],
                      execution_tips: str,
-                     key_infos: list) -> str:
+                     key_infos: list,
+                     screenshot_prompt: str) -> str:
         prompt = f"---\n" \
                  f"- Instruction: {instruction}\n" \
                  f"- Overall Plan: {plan_info.overall_plan}\n" \
@@ -112,10 +117,13 @@ class AppExecutorAgent(Agent):
                  f"\n"
 
         prompt += f"---\n"
-        prompt += current_screen_perception_info.perception_infos.get_screen_info_note_prompt("The attached image is a screenshots of your phone to show the current state") # Call this function to supplement the prompt "Size of the Image and Additional Information".
+        prompt += current_screen_perception_info.perception_infos.get_screen_info_note_prompt(screenshot_prompt) # Call this function to supplement the prompt "Size of the Image and Additional Information".
         prompt += f"\n"
 
         prompt += current_screen_perception_info.perception_infos.get_screen_info_prompt() # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
+
+        prompt += f"Please scrutinize the above screen information to infer the type of the current page (e.g., home page, search page, results page, details page, etc.) and thus the main function of the page. This helps you to avoid wrong actions."\
+                  f"\n"
 
         prompt += "---\n"
         prompt += "Carefully examine all the information provided above and decide on the next action to perform. If you notice an unsolved error in the previous action, think as a human user and attempt to rectify them. You must choose your action from ONE or MORE of the atomic actions.\n\n"
@@ -126,6 +134,8 @@ class AppExecutorAgent(Agent):
             # if current_screen_perception_info.perception_infos.keyboard_status and action == AtomicActionType.Type:
             #     continue # Skip the Type action if the keyboard is not activated
             prompt += f"- {action}({', '.join(value['arguments'])}): {value['description']}\n"
+        prompt += f"IMPORTANT: When you input something (especially a search), please be careful to align it with the user's current language.\n" \
+                  "\n"
         if not current_screen_perception_info.perception_infos.keyboard_status:
             prompt += "NOTE: Unable to input. The keyboard has not been activated. To input, please activate the keyboard by tapping on an input box, which includes tapping on an input box first.\n"\
                       "\n"

@@ -183,12 +183,17 @@ class AppPlannerAgent(Agent):
 
         prompt += f"---\n"
         prompt += current_screen_perception_info.perception_infos.get_screen_info_note_prompt(screenshot_prompt) # Call this function to supplement the prompt "Size of the Image and Additional Information".
-        prompt += f"\n"
+        prompt += f"Please scrutinize the above screen information to infer the type of the current page (e.g., home page, search page, results page, details page, etc.) and thus the main function of the page. This helps you to avoid wrong plans."\
+                  f"\n"
 
         prompt += current_screen_perception_info.perception_infos.get_screen_info_prompt() # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
 
         prompt += f"---\n"\
-                  f"Think step by step and make an high-level plan to achieve the user's instruction. If the request is complex, break it down into sub-goals. If the request involves exploration, include concrete sub-goals to quantify the investigation steps. The screenshot displays the starting state of the phone.\n"\
+                  f"Please follow these steps to develop a plan:"\
+                  f"1. Summarize and abstract the user's instructions into a generic task, taking care to be abstract and high-level."\
+                  f"2. Think comprehensively about the steps to accomplish this generic task, being very abstract and high-level."\
+                  f"3. Check to see if you have missed any key steps."\
+                  f"4. Based on the thinking you have just done, develop a step-by-step, plan to accomplish the user's instructions. This directive should include multiple sub-goals.\n"\
                   f"\n"
 
         prompt += f"---\n" \
@@ -199,9 +204,10 @@ class AppPlannerAgent(Agent):
         prompt += f"---\n"\
                   f"Please provide a JSON with 4 keys, which are interpreted as follows:\n"\
                   f"- plan_thought: A detailed explanation of your rationale for the plan and subgoals.\n"\
-                  f"- overall_plan: Consisting of multiple sub-goals, which need to be prefixed with a numerical number, e.g.'1.first sub-goal;2.second sub-goal;...'\n"\
+                  f"- overall_plan: ALL plan to accomplish the user's instructions. Check to see if you have missed any key steps. Consisting of multiple sub-goals, which need to be prefixed with a numerical number, e.g.'1.';'2.';...'\n"\
                   f"- current_sub_goal: The first subgoal you should work on.\n" \
                   f"- user_interaction_type: Please use 0 to indicate." \
+                  f"- user_interaction_thought: Please use 'None' to indicate.\n" \
                   f"Make sure this JSON can be loaded correctly by json.load().\n" \
                   f"\n"
         return prompt
@@ -229,6 +235,9 @@ class AppPlannerAgent(Agent):
         prompt += previous_screen_perception_info.perception_infos.get_screen_info_prompt("before the Action") # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
         prompt += current_screen_perception_info.perception_infos.get_screen_info_prompt("after the Action") # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
 
+        prompt += f"Please scrutinize the above screen information to infer the type of  previous and current pages (e.g., home page, search page, results page, details page, etc.) and thus the main function of these pages. Please carefully identify whether the page has jumped or not! This will help you to find the mistakes in the execution just now and avoid the wrong plan."\
+                  f"\n"
+
         prompt += f"---\n"\
                   f"- Instruction: {instruction}\n"\
                   f"- Overall Plan: {plan_info.overall_plan}\n"\
@@ -254,14 +263,15 @@ class AppPlannerAgent(Agent):
                   f"\n"
 
         prompt += f"---\n"\
-                  f"Please provide a JSON with 7 keys, which are interpreted as follows:\n"\
+                  f"Please provide a JSON with 8 keys, which are interpreted as follows:\n"\
                   f"- action_result: Please use A, B, C, and D to indicate.\n"\
                   f"- error_potential_causes: If the action_result is A or B, please fill in 'None' here. If the action_result is C or D, please describe in detail the error and the potential cause of failure.\n"\
                   f"- progress_status: If the action_result is A or B, update the progress status. If the action_result is C or D, copy the previous progress status.\n"\
                   f"- plan_thought: Explain in detail your rationale for developing or modifying the plan and sub-goals.\n"\
                   f"- overall_plan: If you need to update the plan, provide the updated plan here. Otherwise keep the current plan and copy it here.\n"\
                   f"- current_sub_goal: The next subgoal. If all subgoals have been completed, write 'Completed'.\n"\
-                  f"- user_interaction_type: Please use 0, 1, 2, 3, and 4 to indicate."\
+                  f"- user_interaction_type: Please use 0, 1, 2, 3, and 4 to indicate." \
+                  f"- user_interaction_thought: Explain in detail the reason for your choice (explain one by one why it is not 1~4). If your choice is not 0, please add the information you want to get from interacting with users. \n" \
                   f"Make sure this JSON can be loaded correctly by json.load().\n"\
                   f"\n"
 
@@ -305,11 +315,12 @@ class AppPlannerAgent(Agent):
                   f"\n"
 
         prompt += f"---\n"\
-                  f"Please provide a JSON with 4 keys, which are interpreted as follows:\n"\
+                  f"Please provide a JSON with 5 keys, which are interpreted as follows:\n"\
                   f"- plan_thought: Explain in detail your rationale for developing or modifying or not modifying the plan and sub-goals.\n"\
                   f"- overall_plan: If you need to update the plan, please provide the updated plan here. Otherwise keep the current plan and copy it here.\n"\
                   f"- current_sub_goal: If you need to update the sub-goal, please provide the updated sub-goal here. Otherwise please keep the current sub-goal and copy it here.\n"\
-                  f"- user_interaction_type: Please use 0, 1, 2, 3, and 4 to indicate."\
+                  f"- user_interaction_type: Please use 0, 1, 2, 3, and 4 to indicate.\n" \
+                  f"- user_interaction_thought: Explain in detail the reason for your choice (explain one by one why it is not 1~4). If your choice is not 0, please add the information you want to get from interacting with users. \n" \
                   f"Make sure this JSON can be loaded correctly by json.load().\n"\
                   f"\n"
 
@@ -320,7 +331,7 @@ class AppPlannerAgent(Agent):
             response = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL).group(1)
         response_jsonobject = json.loads(response)
 
-        plan_info = PlanInfo(response_jsonobject['plan_thought'], response_jsonobject['overall_plan'], response_jsonobject['current_sub_goal'], response_jsonobject['user_interaction_type'])
+        plan_info = PlanInfo(response_jsonobject['plan_thought'], response_jsonobject['overall_plan'], response_jsonobject['current_sub_goal'], response_jsonobject['user_interaction_type'], response_jsonobject['user_interaction_thought'])
         if 'action_result' in response_jsonobject:
             progress_info = ProgressInfo(response_jsonobject['action_result'], response_jsonobject['error_potential_causes'],
                      response_jsonobject['progress_status'])
@@ -332,7 +343,6 @@ class AppPlannerAgent(Agent):
         prompt = f""\
                  f"- 1: Confirmation of sensitive or dangerous action. The sub-target contains sensitive or dangerous action that the user has not requested very explicitly in the user instruction, e.g., file deletion when the user has not instructed file deletion.\n" \
                  f"- 2: Confirmation of irreversible action. The action is irreversible regardless of whether the user has given instruction, e.g., a file deletion that requires the user to reconfirm the action before the file is irreversibly deleted. MAKE SURE that the action is indeed irreversible.\n" \
-                 f"- 3: Choice of different options. Multiple options are presented that satisfy the user's instructions, e.g., there are multiple search results that meet the user's instruction that require further decision-making by the user.\n" \
+                 f"- 3: Choice of different options. Multiple options are presented (on the current screen) that satisfy the user's instructions, e.g., there are multiple search results that meet the user's instruction that require further decision-making by the user.\n" \
                  f"- 4: Further clarification of instruction. The instruction given by the user are vague, e.g., the user asks to make a phone call but does not specify a contact person.\n"
         return prompt
-

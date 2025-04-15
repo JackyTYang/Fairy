@@ -1,3 +1,5 @@
+import asyncio
+
 from loguru import logger
 
 from Citlali.core.type import ListenerType

@@ -26,7 +26,7 @@ class UserInteractorAgent(Agent):
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
               listen_filter=lambda msg: msg.event == EventType.Plan and msg.status == EventStatus.DONE)
     async def on_user_interact(self, message: EventMessage, message_context):
-        if message.event_content.user_interaction_type != 0:
+        if str(message.event_content.user_interaction_type) != "0":
             await self._on_user_interact(message, message_context)
         else:
             logger.bind(log_tag="fairy_sys").info("[Interact With User] No user interaction required, skipped")
@@ -57,13 +57,17 @@ class UserInteractorAgent(Agent):
         images = []
         if not self.non_visual_mode:
             images.append(current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file())
+            screenshot_prompt = "The attached image is a screenshots of your phone to show the current state"
+        else:
+            screenshot_prompt = "The following text description (e.g. JSON or XML) is converted from a screenshots of your phone to show the current state"
 
         interactor_event_content = await self.request_llm(
             self.build_init_prompt(instruction_memory,
                                    current_action_memory[ActionMemoryType.Plan],
                                    current_action_memory[ActionMemoryType.StartScreenPerception],
                                    key_info_memory,
-                                   current_user_interaction),
+                                   current_user_interaction,
+                                   screenshot_prompt),
             images=images,
         )
 
@@ -97,9 +101,11 @@ class UserInteractorAgent(Agent):
                           plan_info: PlanInfo,
                           current_screen_perception_info: ScreenInfo,
                           key_infos: list,
-                          user_interaction_list: List[UserInteractionInfo]) -> str:
+                          user_interaction_list: List[UserInteractionInfo],
+                          screenshot_prompt: str) -> str:
         prompt = f"You have just started or have completed several interactions with the user, and this is the detail of this interaction:\n" \
-                 f"- Interaction Type: {self.get_user_interaction_type_desc(plan_info.user_interaction_type)}\n"
+                 f"- Interaction Type: {self.get_user_interaction_type_desc(plan_info.user_interaction_type)}\n" \
+                 f"- Interaction Thought: {plan_info.user_interaction_thought}\n"
 
         prompt += f"- Historical User Prompt and Response:\n"
         if len(user_interaction_list[:-2])>0:
@@ -124,7 +130,14 @@ class UserInteractorAgent(Agent):
                   f"- Sub-goal: {plan_info.current_sub_goal}\n" \
                   f"\n"
 
-        prompt += f"The following key information is currently available for interaction with users:\n" \
+        prompt += f"---\n"
+        prompt += current_screen_perception_info.perception_infos.get_screen_info_note_prompt(screenshot_prompt) # Call this function to supplement the prompt "Size of the Image and Additional Information".
+        prompt += f"\n"
+
+        prompt += current_screen_perception_info.perception_infos.get_screen_info_prompt() # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
+
+        prompt += f"---\n"\
+                  f"The following key information is currently available for interaction with users:\n" \
                   f"- Key Information: {key_infos}\n" \
                   f"\n"
 
@@ -136,17 +149,17 @@ class UserInteractorAgent(Agent):
                   f"- B: Interaction Target not completed, need to begin or continue interaction with user; \n"\
                   f"- C: Interaction Target not completed, 'user requests for more options' OR 'user selects option not offered' OR 'need to gather more information to interact with the user' (optional for Interaction Type 3 only); \n"\
                   f"2. If the Interaction Status is A, summarize the history with the current user's response. \n"\
-                  f"3. If the Interaction Status is B, construct a prompt and interact with the user, carefully explaining what is needed from the user (to continue), ask the user to answer yes or no if confirmation is required; \n"\
+                  f"3. If the Interaction Status is B, construct a prompt and interact with the user, carefully explaining what is needed from the user (to continue), ask the user to answer yes or no if confirmation is required, please use the language of the user instructions; \n"\
                   f"4. If the Interaction Status is C, carefully specify in the instructions what information needs to be collected in order for the user to make a decision; \n"\
                   f"\n"
 
         prompt += f"---\n"\
                   f"Please provide a JSON with 3 keys, which are interpreted as follows:\n"\
                   f"- interaction_status: Please use A, B and C to indicate;\n" \
-                  f"- interaction_thought: Explain in detail your reasons for choosing the Interaction Status;\n"\
-                  f"- user_prompt: If the Interaction Status is B, please fill in the prompt words that can help the user to make an answer or a choice, you shouldn't let the user perform any actions on their own, simply ask Yes or No when the user interaction type is 1 or 2; Otherwise, please fill in 'None'. \n" \
+                  f"- interaction_thought: Explain in detail your reasons for choosing the Interaction Status;\n" \
+                  f"- response: If the Interaction Status is A, please fill in a summary of all responses; otherwise fill in 'None'.\n" \
+                  f"- user_prompt: If the Interaction Status is B, please fill in the prompt words that can help the user to make an answer or a choice (Includes available options), you shouldn't let the user perform any actions on their own, simply ask Yes or No when the user interaction type is 1 or 2; Otherwise, please fill in 'None'. \n" \
                   f"- action_instruction: If the Interaction Status is C, please fill in the instruction for a new Agent to collect information gathering, need to include information specifically to be collected and quantities; Otherwise, please fill in 'None'.\n" \
-                  f"- response: If the Interaction Status is A, please fill in a summary of all responses; otherwise fill in 'None'.\n"\
                   f"Make sure this JSON can be loaded correctly by json.load().\n" \
                   f"\n"
         return prompt

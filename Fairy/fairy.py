@@ -24,8 +24,8 @@ from Fairy.utils.task_executor import TaskExecutor
 os.environ["ADB_PATH"] = "C:/Users/neosunjz/AppData/Local/Android/Sdk/platform-tools/adb.exe"
 
 class FairyCore:
-    def __init__(self):
-        self._config = FairyConfig(adb_path=os.environ["ADB_PATH"], model="gpt-4o-2024-11-20", model_temperature=0, non_visual_mode=True)
+    def __init__(self, config:FairyConfig):
+        self._config = config
 
     async def get_device(self):
         async def _get_device():

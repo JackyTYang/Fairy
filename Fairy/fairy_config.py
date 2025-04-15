@@ -23,16 +23,6 @@ class FairyConfig:
 
         self.model_client = OpenAIChatClient(_model_config)
 
-        # self._model_client = OpenAIChatClient({
-        #     'model': "deepseek-v3",
-        #     'model_info': {
-        #         "vision": True,
-        #         "function_calling": True,
-        #         "json_output": True,
-        #     },
-        #     'temperature': 0
-        # })
-
         self._adb_path = adb_path
         self.device = None
 

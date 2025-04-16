@@ -10,7 +10,7 @@ from Fairy.agents.app_executor_agent import AppExecutorAgent
 from Fairy.agents.app_key_info_extractor_agent import KeyInfoExtractorAgent
 from Fairy.agents.app_planner_agent import AppPlannerAgent
 from Fairy.agents.user_interactor_agent import UserInteractorAgent
-from Fairy.fairy_config import FairyConfig
+from Fairy.config.fairy_config import FairyConfig
 from Fairy.memory.long_time_memory_manager import LongTimeMemoryManager
 from Fairy.memory.short_time_memory_manager import ShortTimeMemoryManager
 from Fairy.message_entity import EventMessage
@@ -90,9 +90,9 @@ class FairyCore:
         runtime.register(lambda: ScreenPerceptor(runtime, self._config))
         runtime.register(lambda: KeyInfoExtractorAgent(runtime, self._config))
         runtime.register(lambda: UserInteractorAgent(runtime, self._config))
-        runtime.register(lambda: UserChat(runtime))
+        runtime.register(lambda: UserChat(runtime, self._config))
         runtime.register(lambda: ShortTimeMemoryManager(runtime))
-        runtime.register(lambda: LongTimeMemoryManager(runtime))
+        runtime.register(lambda: LongTimeMemoryManager(runtime, self._config))
         runtime.register(lambda: TaskManager(runtime))
         await runtime.publish("app_channel", EventMessage(EventType.Task, EventStatus.CREATED, {
             "instruction": instruction

@@ -1,9 +1,8 @@
-import asyncio
-
 from loguru import logger
 
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import Worker, listener
+from Fairy.config.fairy_config import MobileControllerType, ScreenPerceptionType
 from Fairy.tools.mobile_controller.adb_tools.screenshot_tool import AdbMobileScreenshot
 from Fairy.tools.mobile_controller.ui_automator_tools.screenshot_tool import UiAutomatorMobileScreenshot
 from Fairy.info_entity import ScreenInfo
@@ -18,13 +17,13 @@ class ScreenPerceptor(Worker):
         super().__init__(runtime, "ScreenPerceptor", "ScreenPerceptor")
 
         self.screenshot_getter_type = config.screenshot_getter_type
-        if self.screenshot_getter_type == "adb":
+        if self.screenshot_getter_type == MobileControllerType.ADB:
             self.screenshot_tool = AdbMobileScreenshot(config)
-        elif self.screenshot_getter_type == "uiautomator":
+        elif self.screenshot_getter_type == MobileControllerType.UIAutomator:
             self.screenshot_tool = UiAutomatorMobileScreenshot(config)
 
         self.screen_perception_type = config.screen_perception_type
-        if self.screen_perception_type == "assm" and self.screenshot_getter_type == "adb":
+        if self.screen_perception_type == ScreenPerceptionType.ASSM and self.screenshot_getter_type == MobileControllerType.ADB:
             raise ValueError("ASSM requires uiautomator screenshot tool, but adb is used.")
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
@@ -47,11 +46,11 @@ class ScreenPerceptor(Worker):
         screenshot_file_info, ui_hierarchy_xml = await self.screenshot_tool.get_screen()
         screenshot_file_info.compress_image_to_jpeg()
 
-        if self.screen_perception_type == "fvp":
+        if self.screen_perception_type == ScreenPerceptionType.FVP:
             # Use FVP
             fvp = FineGrainedVisualPerceptor()
             return fvp.get_perception_infos(screenshot_file_info)
-        elif self.screen_perception_type == "assm":
+        elif self.screen_perception_type == ScreenPerceptionType.ASSM:
             # Use ASSM
             assm = AdaptiveSemanticScreenModeling()
             return assm.get_perception_infos(screenshot_file_info, ui_hierarchy_xml)

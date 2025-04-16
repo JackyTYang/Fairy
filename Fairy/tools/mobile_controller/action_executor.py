@@ -5,6 +5,7 @@ from loguru import logger
 from Citlali.core.agent import Worker
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
+from Fairy.config.fairy_config import MobileControllerType
 from Fairy.message_entity import EventMessage
 from Fairy.type import EventType, EventStatus
 from Fairy.tools.mobile_controller.adb_tools.mobile_control_tool import AdbMobileController
@@ -17,9 +18,9 @@ class ActionExecutor(Worker):
         super().__init__(runtime, "ActionExecutor", "ActionExecutor")
 
         self.action_executor_type = config.action_executor_type
-        if self.action_executor_type == "adb":
+        if self.action_executor_type == MobileControllerType.ADB:
             self.control_tool = AdbMobileController(config)
-        elif self.action_executor_type == "uiautomator":
+        elif self.action_executor_type == MobileControllerType.UIAutomator:
             self.control_tool = UiAutomatorMobileController(config)
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",

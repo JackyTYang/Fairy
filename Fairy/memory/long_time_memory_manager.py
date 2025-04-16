@@ -1,4 +1,5 @@
 from enum import Enum
+from pathlib import Path
 
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
 from llama_index.core.vector_stores import MetadataFilters, ExactMatchFilter
@@ -7,6 +8,7 @@ from llama_index.llms.openai_like import OpenAILike
 
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import Worker, listener
+from Fairy.config.fairy_config import FairyConfig
 from Fairy.message_entity import CallMessage
 from Fairy.type import CallType
 
@@ -16,14 +18,17 @@ class LongMemoryCallType(Enum):
     GET_Plan_Tips = 3
 
 class LongTimeMemoryManager(Worker):
-    def __init__(self, runtime):
+    def __init__(self, runtime, config:FairyConfig):
         super().__init__(runtime, "LongTimeMemoryManager", "LongTimeMemoryManager")
 
-        self.llm = OpenAILike(model="qwen-long", api_base="https://dashscope.aliyuncs.com/compatible-mode/v1",
-                              api_key="sk-d4e50bd7e07747b4827611c28da95c23", is_chat_model=True, temperature=0)
-        
-        embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
-        self.index = VectorStoreIndex.from_documents(SimpleDirectoryReader("./Fairy/data").load_data(), embed_model=embed_model, show_progress=True)
+        self.llm = config.rag_model_client
+
+        data_path = Path(__file__).resolve().parent.parent / "data"
+        self.index = VectorStoreIndex.from_documents(
+            SimpleDirectoryReader(data_path).load_data(),
+            embed_model=config.rag_embed_model_client,
+            show_progress=True
+        )
 
     @listener(ListenerType.ON_CALLED, listen_filter=lambda message: message.call_type == CallType.Memory_GET)
     async def get_memory(self, message: CallMessage, message_context):

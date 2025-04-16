@@ -8,7 +8,7 @@ from Citlali.core.agent import Agent
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
-from Fairy.fairy_config import FairyConfig
+from Fairy.config.fairy_config import FairyConfig
 from Fairy.info_entity import PlanInfo, ScreenInfo, UserInteractionInfo
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
@@ -149,7 +149,7 @@ class UserInteractorAgent(Agent):
                   f"- B: Interaction Target not completed, need to begin or continue interaction with user; \n"\
                   f"- C: Interaction Target not completed, 'user requests for more options' OR 'user selects option not offered' OR 'need to gather more information to interact with the user' (optional for Interaction Type 3 only); \n"\
                   f"2. If the Interaction Status is A, summarize the history with the current user's response. \n"\
-                  f"3. If the Interaction Status is B, construct a prompt and interact with the user, carefully explaining what is needed from the user (to continue), ask the user to answer yes or no if confirmation is required, please use the language of the user instructions; \n"\
+                  f"3. If the Interaction Status is B, construct a prompt and interact with the user, carefully explaining what is needed from the user (to continue), ask the user to answer yes or no if confirmation is required; \n"\
                   f"4. If the Interaction Status is C, carefully specify in the instructions what information needs to be collected in order for the user to make a decision; \n"\
                   f"\n"
 
@@ -158,7 +158,7 @@ class UserInteractorAgent(Agent):
                   f"- interaction_status: Please use A, B and C to indicate;\n" \
                   f"- interaction_thought: Explain in detail your reasons for choosing the Interaction Status;\n" \
                   f"- response: If the Interaction Status is A, please fill in a summary of all responses; otherwise fill in 'None'.\n" \
-                  f"- user_prompt: If the Interaction Status is B, please fill in the prompt words that can help the user to make an answer or a choice (Includes available options), you shouldn't let the user perform any actions on their own, simply ask Yes or No when the user interaction type is 1 or 2; Otherwise, please fill in 'None'. \n" \
+                  f"- user_prompt: If the Interaction Status is B, please fill in the prompt words that can help the user to make an answer or a choice (Includes available options), you shouldn't let the user perform any actions on their own, simply ask Yes or No when the user interaction type is 1 or 2; Otherwise, please fill in 'None'. IMPORTANT: Please use the language of the 'Instructions' and double-check that the options you provide are factually correct and in full compliance with the user instructions, irrelevant or fabricated options cannot be included.\n" \
                   f"- action_instruction: If the Interaction Status is C, please fill in the instruction for a new Agent to collect information gathering, need to include information specifically to be collected and quantities; Otherwise, please fill in 'None'.\n" \
                   f"Make sure this JSON can be loaded correctly by json.load().\n" \
                   f"\n"

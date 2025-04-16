@@ -26,3 +26,6 @@ class ModelUsage:
     def __init__(self, prompt_tokens, completion_tokens):
         self.prompt_tokens: int = prompt_tokens
         self.completion_tokens: int = completion_tokens
+
+    def __str__(self):
+        return f"prompt_tokens: {self.prompt_tokens}, completion_tokens: {self.completion_tokens}"

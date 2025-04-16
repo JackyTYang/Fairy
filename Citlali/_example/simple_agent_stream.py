@@ -7,7 +7,7 @@ from Citlali.core.agent import Agent
 from Citlali.core.runtime import CitlaliRuntime
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
-from Citlali.models.entity import ChatMessage
+from Citlali.models.entity import ChatMessage, ResultMessage
 from Citlali.models.openai.client import OpenAIChatClient
 
 
@@ -25,17 +25,21 @@ class SimpleAgent(Agent):
             content="You are a helpful AI assistant.",
             type="SystemMessage")]
         _model_client = OpenAIChatClient({
-            'model': "gpt-4o-2024-11-20"
+            'model': "deepseek-r1",
+            'model_info': {"vision": True, "function_calling": True, "json_output": True},
+            'base_url': os.environ["OPENAI_BASE_URL"],
+            'api_key': os.environ["OPENAI_API_KEY"],
+            'stream': True,
         })
         super().__init__(runtime, name, _model_client, _system_messages)
 
     @listener(ListenerType.ON_CALLED, listen_filter=lambda msg: True)
-    async def on_user_message(self, message: Message, message_context):
+    async def on_user_message(self, message: Message, message_context) -> ResultMessage:
         user_message = ChatMessage(content=message.content,type="UserMessage", source="user")
         response = await self._model_client.create(
             self._system_messages + [user_message]
         )
-        return Message(content=response.content)
+        return response
 
 async def main():
     logger.debug("[EXAMPLE] Simple Agent Running!")
@@ -45,8 +49,10 @@ async def main():
 
     example = "Hello, how are you?"
     logger.info("User Say:" + example)
-    result = await runtime.call("simple_agent", Message(example))
-    logger.info("Agent Say:" + (await result).content)
+    result = await (await runtime.call("simple_agent", Message(example)))
+
+    logger.info("Agent Thought:" + result.thought)
+    logger.info("Agent Say:" + result.content)
 
     await runtime.stop()
 

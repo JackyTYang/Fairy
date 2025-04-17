@@ -237,6 +237,8 @@ def is_keyboard_active(ui_hierarchy_xml, screen_height, known_ime_packages=None)
                 return True
         if res_id == "android:id/input_method_nav_buttons" and visible:
             return True
+        if res_id == "com.github.uiautomator:id/keyboard" and visible:
+            return True
         if "keyboard" in class_name.lower() or "ime" in class_name.lower():
             if visible and y2 >= screen_height * 0.85:
                 return True

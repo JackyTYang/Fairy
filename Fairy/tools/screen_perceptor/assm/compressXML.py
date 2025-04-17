@@ -12,7 +12,7 @@ ATTRS = {
     # 在此列出所有允许保留的属性名称，例如：
     "checkable", "checked", "clickable",
     "focused", "scrollable", "long-clickable", "password", "selected",
-    "text", "class", "bounds","content-desc"
+    "text", "class", "bounds", "content-desc", "image-desc"
 }
 
 KEEP_FALSE_BOOLEAN_ATTRS = {}

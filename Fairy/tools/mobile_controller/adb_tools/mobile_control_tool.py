@@ -29,6 +29,9 @@ class AdbMobileController():
                     await asyncio.sleep(args["wait_time"])
                 case AtomicActionType.Finish:
                     logger.bind(log_tag="fairy_sys").info("All requirements in the user's Instruction have been completed.")
+                case AtomicActionType.NeedInteraction:
+                    await asyncio.sleep(1)
+                    logger.bind(log_tag="fairy_sys").warning("Executor discovery requires user interaction.")
                 case _:
                     await self._run_command(atomic_action, ATOMIC_ACTION_COMMAND[atomic_action], args)
                     await asyncio.sleep(2) # Avoid screen not updating due to phone lag

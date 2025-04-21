@@ -27,7 +27,7 @@ class CoreChatModelConfig(ModelConfig):
         _model_config = {
             'model': self.model_name,
             'temperature': self.model_temperature,
-            'api_base': self.api_base,
+            'base_url': self.api_base,
             'api_key': self.api_key
         }
         if self.model_info is not None:

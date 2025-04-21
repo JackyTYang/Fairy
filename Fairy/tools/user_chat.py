@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from PIL import Image, ImageTk
 from loguru import logger
 
 from Citlali.core.agent import Worker
@@ -36,11 +39,12 @@ class UserChat(Worker):
         await self.publish("app_channel", EventMessage(EventType.UserChat, EventStatus.DONE, message.event_content))
 
     @staticmethod
-    def ask_fairy_interaction(title_prompt_words:str, prompt_words: str) -> str:
+    def ask_fairy_interaction(title_prompt_words: str, prompt_words: str) -> str:
         root = tk.Tk()
         root.withdraw()
 
         top = tk.Toplevel(root)
+        top.attributes("-topmost", True)
         top.title("Fairy User Interaction")
         top.protocol("WM_DELETE_WINDOW", lambda: None)
 

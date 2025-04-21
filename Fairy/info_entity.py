@@ -63,16 +63,18 @@ class PlanInfo:
                 f"\n -----------PlanInfo END-----------")
 
 class ActionInfo:
-    def __init__(self, action_thought, actions:List[Dict[str, AtomicActionType | dict]], action_expectation):
+    def __init__(self, action_thought, actions:List[Dict[str, AtomicActionType | dict]], action_expectation, user_interaction_thought: str):
         self.action_thought = action_thought
         self.actions = actions
         self.action_expectation = action_expectation
+        self.user_interaction_thought = user_interaction_thought
 
     def __str__(self):
         return (f"\n -------------ActionInfo-------------"
                 f"\n - Action Thought:{self.action_thought}"
                 f"\n - Actions: {self.actions}"
                 f"\n - Action Expectation: {self.action_expectation}"
+                f"\n - User Interaction Thought: {self.user_interaction_thought}"
                 f"\n -----------ActionInfo END-----------")
 
 class ProgressInfo:

@@ -4,4 +4,6 @@
 4. search tips: After searching, double-check that the results are as expected, and if the search doesn't turn up as expected, you should either RE-SEARCH or BACK instead of viewing the incorrect search results.
 5. search tips: If you do not press enter or the SEARCH BUTTON after entering your search, it may not be a search results page.
 6. search tips: If there is a SEARCH BAR and you HAVE NOT used it BEFORE, you should consider searching using the SEARCH BAR before considering swiping down the list to search for content.
-7. exploration tips: If you want to see the details of something, in most cases you should click on the name of the thing. For example, if you want to see a list of all the products sold in a particular store, clicking on the name of the store should be the right thing to do.
+7. search tips: The language of the search content should be consistent with the language used by the user in the "Instruction" section. If the user communicates with you in Chinese, the search content should also be in Chinese.
+8. select tips: Please follow the user's instructions to the letter, e.g. if the user asks to select a store, you cannot select a product at this time.
+10. exploration tips: If you want to see the details of something, in most cases you should click on the name of the thing. For example, if you want to see a list of all the products sold in a particular store, clicking on the name of the store should be the right thing to do.

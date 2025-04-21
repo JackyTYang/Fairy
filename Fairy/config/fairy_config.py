@@ -1,3 +1,4 @@
+import os
 from enum import Enum
 
 from Citlali.models.openai.client import OpenAIChatClient
@@ -41,6 +42,7 @@ class FairyConfig:
 
         # path of local temporary storage
         self.temp_path = "tmp" if temp_path is None else temp_path
+        os.makedirs(self.temp_path, exist_ok=True)
 
         # path of screenshot storage on mobile phone
         self.screenshot_phone_path = "/sdcard" if screenshot_phone_path is None else screenshot_phone_path

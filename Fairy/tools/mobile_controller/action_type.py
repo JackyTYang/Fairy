@@ -12,6 +12,7 @@ class AtomicActionType(Enum):
     Wait = "Wait"
     Finish = "Finish"
     UserInstruction = "UserInstruction"
+    NeedInteraction = "NeedInteraction"
 
 
 ATOMIC_ACTION_SIGNITURES = {
@@ -51,6 +52,10 @@ ATOMIC_ACTION_SIGNITURES = {
     AtomicActionType.Wait: {
         "arguments": ["wait_time"],
         "description": "Wait for \"wait_time\" seconds to give more time for loading."
+    },
+    AtomicActionType.NeedInteraction: {
+        "arguments": [],
+        "description": "When you are faced with multiple eligible options to make any choice, carefully consider whether this has been explicitly prompted or confirmed by user interaction. If the instructions are ambiguous, choose to perform a 'NeedInteraction', this will require the planner to rethink."
     },
     AtomicActionType.Finish: {
         "arguments": [],

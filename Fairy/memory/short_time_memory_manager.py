@@ -126,7 +126,7 @@ class ShortTimeMemoryManager(Worker):
         self.current_memory[MemoryType.Instruction]["updated"].append(message.event_content.response)
         # 构建本次的Action
         self.current_memory[MemoryType.Actions][-1][ActionMemoryType.Action] = ActionInfo(
-            "User Instruction", [{"name": AtomicActionType.UserInstruction}], "Get Responses."
+            "User Instruction", [{"name": AtomicActionType.UserInstruction}], "Get Responses.", ""
         )
         self.current_memory[MemoryType.Actions][-1][ActionMemoryType.ActionResult] = ProgressInfo(
             "A", None, None

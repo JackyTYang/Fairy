@@ -3,8 +3,7 @@ from pathlib import Path
 
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
 from llama_index.core.vector_stores import MetadataFilters, ExactMatchFilter
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.llms.openai_like import OpenAILike
+from loguru import logger
 
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import Worker, listener
@@ -30,6 +29,12 @@ class LongTimeMemoryManager(Worker):
             show_progress=True
         )
 
+        self.memory_cache = {
+            LongMemoryCallType.GET_Execution_Tips: {},
+            LongMemoryCallType.GET_Execution_ERROR_Tips: {},
+            LongMemoryCallType.GET_Plan_Tips: {},
+        }
+
     @listener(ListenerType.ON_CALLED, listen_filter=lambda message: message.call_type == CallType.Memory_GET)
     async def get_memory(self, message: CallMessage, message_context):
         memory_list = {}
@@ -45,7 +50,31 @@ class LongTimeMemoryManager(Worker):
             memory_list[memory_call_type] = memory
         return memory_list
 
+    def query_memory_cache(self, memory_call_type, query_text):
+        need_to_move = []
+        for key, value in self.memory_cache[memory_call_type].items():
+            if key == query_text:
+                self.memory_cache[memory_call_type][key]["expires"] = 5
+                return value["response"]
+            elif value["expires"] > 0:
+                self.memory_cache[memory_call_type][key]["expires"] -= 1
+            else:
+                need_to_move.append(key)
+        for key in need_to_move:
+            del self.memory_cache[memory_call_type][key]
+        return None
+
+    def add_memory_cache(self, memory_call_type, query_text, response):
+        self.memory_cache[memory_call_type][query_text] = {
+            "response": response,
+            "expires": 5
+        }
+
     def query_tips(self, memory_call_type, query_text):
+        response = self.query_memory_cache(memory_call_type, query_text)
+        if response is not None:
+            logger.bind(log_tag="fairy_sys").debug(f"Long Memory Cache {query_text} has been hit.")
+            return response
         map = {
             LongMemoryCallType.GET_Plan_Tips: {
                 "file_name": "plan_tips.txt",
@@ -66,4 +95,5 @@ class LongTimeMemoryManager(Worker):
         )
         query_engine = self.index.as_query_engine(llm=self.llm, filters=filters)
         response = query_engine.query(map[memory_call_type]["query"](query_text))
+        self.add_memory_cache(memory_call_type, query_text, response)
         return response

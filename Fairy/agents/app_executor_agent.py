@@ -126,7 +126,10 @@ class AppExecutorAgent(Agent):
                   f"\n"
 
         prompt += "---\n"
-        prompt += "Carefully examine all the information provided above and decide on the next action to perform. If you notice an unsolved error in the previous action, think as a human user and attempt to rectify them. You must choose your action from ONE or MORE of the atomic actions.\n\n"
+        prompt += "Carefully examine all the information provided above and decide on the next action to perform. If you notice an unsolved error in the previous action, think as a human user and attempt to rectify them. You must choose your action from ONE or MORE of the atomic actions.\n"\
+                  "If there are multiple options and the user does not specify which one to choose in the Instruction, interaction with the user is necessary. You cannot make any choices on behalf of the user\n"\
+                  "\n"
+
         prompt += "- Atomic Actions: \n"
         prompt += "The atomic action functions are listed in the format of `name(arguments): description` as follows:\n"
 
@@ -163,10 +166,11 @@ class AppExecutorAgent(Agent):
                   f"\n"
 
         prompt += "---\n"
-        prompt += "Please provide a JSON with 3 keys, which are interpreted as follows:\n"\
+        prompt += "Please provide a JSON with 4 keys, which are interpreted as follows:\n"\
                   "- action_thought: A detailed explanation of your rationale for the chosen action.\n"\
                   "- actions: ONE or MORE action from the 'Atomic Actions' provided. IMPORTANT: DO NOT return invalid actions like null or stop. DO NOT repeat previously failed actions. The decided action must be provided in a valid JSON format and should be an array containing a sequence of actions, specifying the name and parameters of the action. For example, if you decide to tap on position (100, 200) first, you should first put in the array \{\"name\":\"Tap\", \"arguments\":{\"x\":100, \"y\":100}}. If an action does not require parameters, such as 'Wait', fill in the 'Parameters' field with null. IMPORTANT: MAKE SURE the parameter key matches the signature of the action function exactly. MAKE SURE that the order of the actions in the array is the same as the order in which you want them to be executed. MAKE SURE this JSON can be loaded correctly by json.load().\n"\
-                  f"- action_expectation: A brief description of the expected results of the selected action(s).\n"\
+                  f"- action_expectation: A brief description of the expected results of the selected action(s).\n" \
+                  f"- user_interaction_thought: A judgment on whether or not need to interact with the user and explain the reasons. \n" \
                   f"Make sure this JSON can be loaded correctly by json.load().\n" \
                   f"\n"
         return prompt
@@ -182,5 +186,5 @@ class AppExecutorAgent(Agent):
                 print(f"Error! Invalid action name: {action['name']}")
                 return None
 
-        action_info = ActionInfo(response_jsonobject['action_thought'], response_jsonobject['actions'], response_jsonobject['action_expectation'])
+        action_info = ActionInfo(response_jsonobject['action_thought'], response_jsonobject['actions'], response_jsonobject['action_expectation'], response_jsonobject['user_interaction_thought'])
         return action_info

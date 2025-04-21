@@ -154,11 +154,11 @@ class UserInteractorAgent(Agent):
                   f"\n"
 
         prompt += f"---\n"\
-                  f"Please provide a JSON with 3 keys, which are interpreted as follows:\n"\
+                  f"Please provide a JSON with 6 keys, which are interpreted as follows:\n"\
                   f"- interaction_status: Please use A, B and C to indicate;\n" \
                   f"- interaction_thought: Explain in detail your reasons for choosing the Interaction Status;\n" \
                   f"- response: If the Interaction Status is A, please fill in a summary of all responses; otherwise fill in 'None'.\n" \
-                  f"- user_prompt: If the Interaction Status is B, please fill in the prompt words that can help the user to make an answer or a choice (Includes available options), you shouldn't let the user perform any actions on their own, simply ask Yes or No when the user interaction type is 1 or 2; Otherwise, please fill in 'None'. IMPORTANT: Please use the language of the 'Instructions' and double-check that the options you provide are factually correct and in full compliance with the user instructions, irrelevant or fabricated options cannot be included.\n" \
+                  f"- user_prompt: If the Interaction Status is B, please fill in the prompt words that can help the user to make an answer or a choice (Includes available options), you shouldn't let the user perform any actions on their own, simply ask Yes or No when the user interaction type is 1 or 2; Otherwise, please fill in 'None'. IMPORTANT: Please use the language of the 'Instruction' and double-check that the options you provide are factually correct and in full compliance with the user instructions, irrelevant or fabricated options cannot be included.\n" \
                   f"- action_instruction: If the Interaction Status is C, please fill in the instruction for a new Agent to collect information gathering, need to include information specifically to be collected and quantities; Otherwise, please fill in 'None'.\n" \
                   f"Make sure this JSON can be loaded correctly by json.load().\n" \
                   f"\n"

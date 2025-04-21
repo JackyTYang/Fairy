@@ -33,7 +33,7 @@ class FairyTesterX1ForLongTimeMemory:
 async def main():
     _config = FairyConfig(adb_path=os.environ["ADB_PATH"],
                           model=CoreChatModelConfig(
-                              model_name="deepseek-v3",  # "gpt-4o-2024-11-20"
+                              model_name="deepseek-v3-250324",  # "gpt-4o-2024-11-20"
                               model_temperature=0,
                               model_info={"vision": True, "function_calling": True, "json_output": True},
                               api_base="https://vip.apiyi.com/v1",

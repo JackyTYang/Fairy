@@ -41,4 +41,7 @@ class UiAutomatorMobileController():
                 logger.bind(log_tag="fairy_sys").info("All requirements in the user's Instruction have been completed.")
             case AtomicActionType.Wait:
                 await asyncio.sleep(args["wait_time"])
+            case AtomicActionType.NeedInteraction:
+                await asyncio.sleep(1)
+                logger.bind(log_tag="fairy_sys").warning("Executor discovery requires user interaction.")
 

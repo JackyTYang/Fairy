@@ -19,7 +19,7 @@ from Fairy.type import EventType, EventStatus, CallType
 class AppPlannerAgent(Agent):
     def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
-            content="You are a helpful AI assistant for operating mobile phones. Your goal is to verify whether the last action produced the expected behavior, to keep track of the progress and devise high-level plans to achieve the user's requests. Think as if you are a human user operating the phone.",
+            content="You are a helpful AI assistant for operating mobile phones. Your goal is to verify whether the last action produced the expected behavior, to keep track of the progress and devise high-level plans to achieve the user's requests. Think as if you are a human user operating the phone, but if you are faced with uncertain options, you should actively interact with users.",
             type="SystemMessage")]
         super().__init__(runtime, "AppPlannerAgent", config.model_client, system_messages)
 
@@ -193,7 +193,7 @@ class AppPlannerAgent(Agent):
                   f"1. Summarize and abstract the user's instructions into a generic task, taking care to be abstract and high-level."\
                   f"2. Think comprehensively about the steps to accomplish this generic task, being very abstract and high-level."\
                   f"3. Check to see if you have missed any key steps."\
-                  f"4. Based on the thinking you have just done, develop a step-by-step, plan to accomplish the user's instructions. This directive should include multiple sub-goals.\n"\
+                  f"4. Based on the thinking you have just done, develop a step-by-step, plan to accomplish the user's instructions. This directive should include multiple sub-goals. The User can only fill in the prompts, not perform any actual actions.\n"\
                   f"\n"
 
         prompt += f"---\n" \
@@ -235,7 +235,7 @@ class AppPlannerAgent(Agent):
         prompt += previous_screen_perception_info.perception_infos.get_screen_info_prompt("before the Action") # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
         prompt += current_screen_perception_info.perception_infos.get_screen_info_prompt("after the Action") # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
 
-        prompt += f"Please scrutinize the above screen information to infer the type of  previous and current pages (e.g., home page, search page, results page, details page, etc.) and thus the main function of these pages. Please carefully identify whether the page has jumped or not! This will help you to find the mistakes in the execution just now and avoid the wrong plan."\
+        prompt += f"Please scrutinize the above screen information to infer the type of  previous and current pages (e.g., home page, search page, results page, details page, etc.) and thus the main function of these pages. Please carefully identify whether the page has jumped or not! This will help you to find the mistakes in the execution just now and avoid the wrong plan.\n"\
                   f"\n"
 
         prompt += f"---\n"\
@@ -311,14 +311,15 @@ class AppPlannerAgent(Agent):
                   f"1. In the following cases where user interaction is required, determine whether user interaction is required next, and select 0 if no user interaction is required:\n"
         prompt += self.get_user_interaction_situation_prompt() + f"\n"
 
-        prompt += f"2. If user interaction is no longer required, think about whether the overall plan, sub-goals that were planned to be executed prior to the interaction need to be changed. Please note that you have just interacted with the user and you have not actually done the new instructions from the user, please plan to fulfill the new instructions from the user. \n" \
+        prompt += f"2. If user interaction is no longer required, think about whether the overall plan, sub-goals that were planned to be executed prior to the interaction need to be changed. \n"\
+                  "NOTE that you have just interacted with the user and have not yet actually executed the user's new instructions, in which case you should not change the current subgoal or it will result in skipped execution. (e.g. If the task is to make a selection  and the user has already selected an option, this task is NOT completed! Because the user's decision has not yet been processed by the executor Agent!) \n" \
                   f"\n"
 
         prompt += f"---\n"\
                   f"Please provide a JSON with 5 keys, which are interpreted as follows:\n"\
                   f"- plan_thought: Explain in detail your rationale for developing or modifying or not modifying the plan and sub-goals.\n"\
                   f"- overall_plan: If you need to update the plan, please provide the updated plan here. Otherwise keep the current plan and copy it here.\n"\
-                  f"- current_sub_goal: If you need to update the sub-goal, please provide the updated sub-goal here. Otherwise please keep the current sub-goal and copy it here.\n"\
+                  f"- current_sub_goal: In the vast majority of cases, the current sub-goal should be left unchanged because the user has just made a decision to help the current sub-goal execute, and the current sub-goal has not yet been actually executed. Unless you are quite sure that you need to change the current sub-goal (e.g., if the user requests it).\n"\
                   f"- user_interaction_type: Please use 0, 1, 2, 3, and 4 to indicate.\n" \
                   f"- user_interaction_thought: Explain in detail the reason for your choice (explain one by one why it is not 1~4). If your choice is not 0, please add the information you want to get from interacting with users. \n" \
                   f"Make sure this JSON can be loaded correctly by json.load().\n"\
@@ -341,8 +342,8 @@ class AppPlannerAgent(Agent):
 
     def get_user_interaction_situation_prompt(self):
         prompt = f""\
-                 f"- 1: Confirmation of sensitive or dangerous action. The sub-target contains sensitive or dangerous action that the user has not requested very explicitly in the user instruction, e.g., file deletion when the user has not instructed file deletion.\n" \
-                 f"- 2: Confirmation of irreversible action. The action is irreversible regardless of whether the user has given instruction, e.g., a file deletion that requires the user to reconfirm the action before the file is irreversibly deleted. MAKE SURE that the action is indeed irreversible.\n" \
-                 f"- 3: Choice of different options. Multiple options are presented (on the current screen) that satisfy the user's instructions, e.g., there are multiple search results that meet the user's instruction that require further decision-making by the user.\n" \
-                 f"- 4: Further clarification of instruction. The instruction given by the user are vague, e.g., the user asks to make a phone call but does not specify a contact person.\n"
+                 f"- 1: The current sub-goal is sensitive or dangerous action and the user has not confirmed it in the 'Instruction'. E.g., file deletion when the user has not instructed file deletion.\n" \
+                 f"- 2: The current sub-goal is irreversible action and the user has not confirmed it in the 'Instruction'. E.g., a file deletion that requires the user to reconfirm the action before the file is irreversibly deleted. MAKE SURE that the action is indeed irreversible.\n" \
+                 f"- 3: The next action involves a selection, and the user has not indicated in the 'Instruction' which choice to make. When there are multiple options on the current screen that fulfill the user's instructions, and you want to SELECT a specific option, but the user has not explicitly instructed you to do so, you must interact with the user, and never take matters into your own hands! E.g., there are multiple search results that meet the user's instruction that require further decision-making by the user.\n" \
+                 f"- 4: The instruction given by the user is ambiguous. E.g., the user asks to make a phone call but does not specify a contact person.\n"
         return prompt

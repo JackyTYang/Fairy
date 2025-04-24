@@ -9,31 +9,31 @@ from Fairy.tools.screen_perceptor.assm.compressXML import parse_bounds
 import xml.etree.ElementTree as ET
 
 
-# ----- 图标提取 -----
 def extract_icons_and_attach_id(root, screenshot_path, output_img_dir):
     os.makedirs(output_img_dir, exist_ok=True)
     image = Image.open(screenshot_path)
     count = 0
-    for node in root.iter():
+    # 找到所有 ImageView
+    # 注意：在 uiautomator2 的 dump 里，所有控件标签都是 <node>
+    image_nodes = root.findall(".//node[@class='android.widget.ImageView']")
+    for node in image_nodes:
         bounds = node.attrib.get("bounds", "")
-        cls = node.attrib.get("class", "").lower()
-        desc = node.attrib.get("content-desc", "").lower()
         if not bounds:
             continue
-        if "image" in cls or any(kw in desc for kw in ["icon", "logo", "image"]):
-            x1, y1, x2, y2 = parse_bounds(bounds)
-            if x2 > x1 and y2 > y1:
-                cropped = image.crop((x1, y1, x2, y2))
-                fname = f"{count}.png"
-                cropped.save(os.path.join(output_img_dir, fname))
-                node.attrib["image-id"] = count
-                count += 1
+        x1, y1, x2, y2 = parse_bounds(bounds)
+        if x2 > x1 and y2 > y1:
+            cropped = image.crop((x1, y1, x2, y2))
+            fname = f"{count}.png"
+            cropped.save(os.path.join(output_img_dir, fname))
+            node.attrib["image-id"] = count
+            count += 1
     # print(f"🎉 图标提取完成，共保存 {count} 张图标。")
 
 
 # ----- XML 注入描述 -----
 def annotate_xml_with_descriptions(root, desc_map):
-    for node in root.iter():
+    image_nodes = root.findall(".//node[@class='android.widget.ImageView']")
+    for node in image_nodes:
         img_id = node.attrib.pop('image-id', None)
         if img_id and img_id + 1 in desc_map:
             node.attrib['image-desc'] = desc_map[img_id + 1]

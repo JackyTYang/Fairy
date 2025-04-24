@@ -17,24 +17,24 @@ from Fairy.type import EventStatus, EventType, CallType
 from Fairy.tools.mobile_controller.action_type import ATOMIC_ACTION_SIGNITURES, AtomicActionType
 
 
-class AppExecutorAgent(Agent):
+class AppActionDeciderAgent(Agent):
     def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
-            content="You are a helpful AI assistant for operating mobile phones. Your goal is to choose the correct actions to complete the user's instruction. Think as if you are a human user operating the phone.",
+            content="You are a helpful AI assistant for operating mobile phones. Your goal is to choose the correct atomic actions to complete the user's instruction. Think as if you are a human user operating the phone.",
             type="SystemMessage")]
-        super().__init__(runtime, "AppExecutorAgent", config.model_client, system_messages)
+        super().__init__(runtime, " AppActionDeciderAgent", config.model_client, system_messages)
         self.non_visual_mode = config.non_visual_mode
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
               listen_filter=lambda msg: msg.event == EventType.Plan and msg.status == EventStatus.DONE)
     async def on_execute_plan(self, message: EventMessage, message_context):
 
-        logger.bind(log_tag="fairy_sys").info("[Execute Plan] TASK in progress...")
+        logger.bind(log_tag="fairy_sys").info("[Atomic Action Decision] TASK in progress...")
 
         # 如果当前Plan需要用户交互，则跳过
         print(message.event_content.user_interaction_type)
         if str(message.event_content.user_interaction_type) != "0":
-            logger.bind(log_tag="fairy_sys").info("[Execute Plan] User interaction required, skipped")
+            logger.bind(log_tag="fairy_sys").info("[Atomic Action Decision] User interaction required, skipped")
             return
 
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, StartScreenPerception)\Historical Action Memory (Action, ActionResult)\KeyInfo
@@ -98,7 +98,7 @@ class AppExecutorAgent(Agent):
         )
 
         await self.publish("app_channel", EventMessage(EventType.ActionExecution, EventStatus.CREATED, event_content))
-        logger.bind(log_tag="fairy_sys").info("[Execute Plan] TASK completed.")
+        logger.bind(log_tag="fairy_sys").info("[Atomic Action Decision] TASK completed.")
 
     @staticmethod
     def build_prompt(instruction,
@@ -113,7 +113,7 @@ class AppExecutorAgent(Agent):
                  f"- Instruction: {instruction}\n" \
                  f"- Overall Plan: {plan_info.overall_plan}\n" \
                  f"- Current Sub-goal: {plan_info.current_sub_goal}\n" \
-                 f" - Key Information Record (Excluding Current Screen): {key_infos}\n" \
+                 f"- Key Information Record (Excluding Current Screen): {key_infos}\n" \
                  f"\n"
 
         prompt += f"---\n"

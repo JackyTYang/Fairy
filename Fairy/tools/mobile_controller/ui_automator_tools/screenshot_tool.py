@@ -5,8 +5,10 @@ from loguru import logger
 from Fairy.info_entity import ScreenFileInfo
 import uiautomator2 as u2
 
+from Fairy.tools.mobile_controller.entity import MobileScreenshot
 
-class UiAutomatorMobileScreenshot():
+
+class UiAutomatorMobileScreenshot(MobileScreenshot):
     def __init__(self, config):
         self.screenshot_temp_path = config.get_screenshot_temp_path()
         self.screenshot_filename = config.screenshot_filename

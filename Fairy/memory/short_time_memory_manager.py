@@ -223,6 +223,7 @@ class ShortTimeMemoryManager(Worker):
 
     async def _get_current_action_memory(self, memory_request):
         # 检查要求的记忆是否已经就绪
+        memory = {}
         for memory_type in memory_request:
             if self.current_memory[MemoryType.Actions][-1][memory_type] is None:
                 self.current_memory_ready_event[memory_type] = asyncio.Event()
@@ -230,7 +231,8 @@ class ShortTimeMemoryManager(Worker):
                 await self.current_memory_ready_event[memory_type].wait()
                 logger.bind(log_tag="fairy_sys").debug(f"Memory {memory_type} is ready.")
                 self.current_memory_ready_event.pop(memory_type)
-        return self.current_memory[MemoryType.Actions][-1]
+            memory[memory_type] = self.current_memory[MemoryType.Actions][-1][memory_type]
+        return memory
 
     async def _get_historical_action_memory(self, memory_request):
         # 无需检查记忆是否就绪

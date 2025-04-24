@@ -1,25 +1,17 @@
 import asyncio
 import os
 
+from Citlali.core.runtime import CitlaliRuntime
+from Fairy.agents.global_planner import GlobalPlannerAgent
 from Fairy.config.model_config import CoreChatModelConfig, RAGChatModelConfig, RAGEmbedModelConfig
 from Fairy.fairy import FairyCore
 from Fairy.config.fairy_config import FairyConfig
-
-# 请其他同学使用自己的OPENAI_API_KEY来请求
-# 以下是Jiazheng.Sun的API Key, 请勿使用
-# os.environ["OPENAI_API_KEY"] = "sk-8t4sGAakvPVKfFLn9801056499284a66B31aC07b1f9907F3"
-# os.environ["OPENAI_BASE_URL"] = "https://vip.apiyi.com/v1"
-
-# os.environ["OPENAI_API_KEY"] = "sk-tiajbqis4UNo0bRu4frkaaLPWABbe2wTDlGCg9qymjXJf9Gq"
-# os.environ["OPENAI_API_KEY"] = "sk-IUDWXcrvbtYiRrwLAyIZCVV05EFyPjkFA277EtFh6f3uQjZZ"
-# os.environ["OPENAI_BASE_URL"] = "https://api.chatanywhere.tech/v1"
-
-# os.environ["OPENAI_API_KEY"] = "sk-d4e50bd7e07747b4827611c28da95c23"
-# os.environ["OPENAI_BASE_URL"] = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-# 结束
+from Fairy.message_entity import EventMessage
+from Fairy.tools.mobile_controller.action_executor import ActionExecutor
+from Fairy.tools.mobile_controller.app_info_manager import AppInfoManager
+from Fairy.type import EventType, EventStatus
 
 ADB_PATH = "C:/Users/neosunjz/AppData/Local/Android/Sdk/platform-tools/adb.exe"
-os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 
 async def main():
     _config = FairyConfig(adb_path=os.environ["ADB_PATH"],
@@ -40,10 +32,22 @@ async def main():
                               model_name="intfloat/multilingual-e5-large-instruct"
                           ),
                           non_visual_mode=True,
-                          reflection_policy='standalone')
+                          manual_collect_app_info=True
+                          )
     fairy = FairyCore(_config)
-    ## await fairy.start("Please help me to delete all flower related images in the album and clear the recycle bin")
-    await fairy.start("请帮我在美团外卖App上点一个‘肯德基’的汉堡，当前的应用是就是美团外卖App")
+    await fairy.new_task("TestX2")
+    await fairy.get_device()
+
+    runtime = CitlaliRuntime()
+    runtime.run()
+    runtime.register(lambda: AppInfoManager(runtime, fairy._config))
+    runtime.register(lambda: GlobalPlannerAgent(runtime, fairy._config))
+    runtime.register(lambda: ActionExecutor(runtime, fairy._config))
+
+    await runtime.publish("app_channel", EventMessage(EventType.GlobalPlan, EventStatus.CREATED, {
+        "user_instruction": "在地图上为我找附件的一家受欢迎的川菜馆。查看相关评价，并帮我总结到记事本里。最后帮我导航到这家餐厅"
+    }))
+    await runtime.stop()
 
 if __name__ == '__main__':
     asyncio.run(main())

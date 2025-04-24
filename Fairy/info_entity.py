@@ -62,6 +62,19 @@ class PlanInfo:
                 f"\n - User Interaction Thought: {self.user_interaction_thought}"
                 f"\n -----------PlanInfo END-----------")
 
+class GlobalPlanInfo:
+    def __init__(self, global_plan_thought, global_plan, ins_language):
+        self.global_plan_thought = global_plan_thought
+        self.global_plan = global_plan
+        self.ins_language = ins_language
+
+    def __str__(self):
+        return (f"\n -------------GlobalPlanInfo-------------"
+                f"\n - Global Plan Thought:{self.global_plan_thought}"
+                f"\n - Global Plan: {self.global_plan}"
+                f"\n - Ins Language: {self.ins_language}"
+                f"\n -----------GlobalPlanInfo END-----------")
+
 class ActionInfo:
     def __init__(self, action_thought, actions:List[Dict[str, AtomicActionType | dict]], action_expectation, user_interaction_thought: str):
         self.action_thought = action_thought

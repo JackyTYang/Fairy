@@ -31,6 +31,8 @@ class FairyConfig:
                  screen_perception_type: ScreenPerceptionType = ScreenPerceptionType.ASSM,
                  non_visual_mode: bool=False,
                  interaction_mode: InteractionMode=InteractionMode.Dialog,
+                 manual_collect_app_info: bool=False,
+                 reflection_policy: str='hybrid',
                  ):
 
         self.model_client = model.build()
@@ -44,6 +46,8 @@ class FairyConfig:
         self.temp_path = "tmp" if temp_path is None else temp_path
         os.makedirs(self.temp_path, exist_ok=True)
 
+        self.task_temp_path = None
+
         # path of screenshot storage on mobile phone
         self.screenshot_phone_path = "/sdcard" if screenshot_phone_path is None else screenshot_phone_path
 
@@ -56,12 +60,23 @@ class FairyConfig:
         self.screen_perception_type = screen_perception_type # default screen_perception_type
         self.non_visual_mode = non_visual_mode
         self.interaction_mode = interaction_mode
+        self.manual_collect_app_info = manual_collect_app_info
+
+        self.reflection_policy = reflection_policy
+
+    def get_user_mobile_record_path(self) -> str:
+        os.makedirs(os.path.join(self.temp_path, self.device, "record"), exist_ok=True)
+        return str(os.path.join(self.temp_path, self.device, "record"))
+
+    def get_user_mobile_app_info_path(self):
+
+        return os.path.join(self.get_user_mobile_record_path(), "app_info.json")
 
     def get_screenshot_temp_path(self):
-        return self.temp_path + "/screenshot"
+        return os.path.join(self.task_temp_path, "screenshot")
 
     def get_log_temp_path(self):
-        return self.temp_path + "/log"
+        return os.path.join(self.task_temp_path, "log")
 
     def get_adb_path(self):
         return (self._adb_path + f" -s {self.device}") if self.device is not None else self._adb_path

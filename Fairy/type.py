@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class EventType(Enum):
+    GlobalPlan = 10
     Task = 0
     Plan = 1
     ActionExecution = 2
@@ -20,3 +21,5 @@ class EventStatus(Enum):
 class CallType(Enum):
     Memory_GET = 1
     Memory_SWITCH = 2
+    App_Info_GET = 3
+    Action_EXECUTE = 4

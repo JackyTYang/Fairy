@@ -73,7 +73,7 @@ class LongTimeMemoryManager(Worker):
     def query_tips(self, memory_call_type, query_text):
         response = self.query_memory_cache(memory_call_type, query_text)
         if response is not None:
-            logger.bind(log_tag="fairy_sys").debug(f"Long Memory Cache {query_text} has been hit.")
+            logger.bind(log_tag="fairy_sys").info(f"Long Memory Cache {query_text} has been hit.")
             return response
         map = {
             LongMemoryCallType.GET_Plan_Tips: {

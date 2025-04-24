@@ -14,6 +14,9 @@ class AtomicActionType(Enum):
     UserInstruction = "UserInstruction"
     NeedInteraction = "NeedInteraction"
 
+    ListApps = "ListApps"
+    StartApp = "StartApp"
+
 
 ATOMIC_ACTION_SIGNITURES = {
     AtomicActionType.Tap: {

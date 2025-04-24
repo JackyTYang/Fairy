@@ -4,10 +4,11 @@ import subprocess
 from loguru import logger
 
 from Fairy.info_entity import ScreenFileInfo
+from Fairy.tools.mobile_controller.entity import MobileScreenshot
 from Fairy.utils.task_executor import TaskExecutor
 
 
-class AdbMobileScreenshot():
+class AdbMobileScreenshot(MobileScreenshot):
     def __init__(self, config):
         self.adb_path = config.get_adb_path()
         # Path of desktop local temporary storage

@@ -6,9 +6,12 @@ import time
 from loguru import logger
 
 from Citlali.core.runtime import CitlaliRuntime
-from Fairy.agents.app_executor_agent import AppExecutorAgent
-from Fairy.agents.app_key_info_extractor_agent import KeyInfoExtractorAgent
-from Fairy.agents.app_planner_agent import AppPlannerAgent
+from Fairy.agents.app_executor_agents.app_action_decider_agent import AppActionDeciderAgent
+from Fairy.agents.app_executor_agents.app_key_info_extractor_agent import KeyInfoExtractorAgent
+from Fairy.agents.app_executor_agents.app_planner_agent.app_planner_agent import AppPlannerAgent
+from Fairy.agents.app_executor_agents.app_planner_agent.app_reflector_agent import AppReflectorAgent
+from Fairy.agents.app_executor_agents.app_planner_agent.app_replanner_for_act_exec import AppRePlannerForActExecAgent
+from Fairy.agents.app_executor_agents.app_planner_agent.app_replanner_for_usr_chat import AppRePlannerForUsrChatAgent
 from Fairy.agents.user_interactor_agent import UserInteractorAgent
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.memory.long_time_memory_manager import LongTimeMemoryManager
@@ -54,7 +57,7 @@ class FairyCore:
         current_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
         task_temp_path = f"{self._config.temp_path}/{task_name}_{current_time}"
         os.mkdir(task_temp_path)
-        self._config.temp_path = task_temp_path
+        self._config.task_temp_path = task_temp_path
 
         # 新建文件夹
         os.mkdir(self._config.get_screenshot_temp_path())
@@ -85,7 +88,10 @@ class FairyCore:
         runtime = CitlaliRuntime()
         runtime.run()
         runtime.register(lambda: AppPlannerAgent(runtime, self._config))
-        runtime.register(lambda: AppExecutorAgent(runtime, self._config))
+        runtime.register(lambda: AppReflectorAgent(runtime, self._config))
+        runtime.register(lambda: AppRePlannerForActExecAgent(runtime, self._config))
+        runtime.register(lambda: AppRePlannerForUsrChatAgent(runtime, self._config))
+        runtime.register(lambda: AppActionDeciderAgent(runtime, self._config))
         runtime.register(lambda: ActionExecutor(runtime, self._config))
         runtime.register(lambda: ScreenPerceptor(runtime, self._config))
         runtime.register(lambda: KeyInfoExtractorAgent(runtime, self._config))

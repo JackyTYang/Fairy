@@ -1,0 +1,12 @@
+# 忽略 Python 编译后的文件
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# 忽略 PyCharm 相关文件
+.idea/
+*.iml
+
+# 忽略 log 文件
+*.log

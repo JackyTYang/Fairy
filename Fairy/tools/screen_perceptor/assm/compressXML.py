@@ -2,203 +2,165 @@ import os
 import xml.etree.ElementTree as ET
 import re
 
-# 布尔属性
+# 布尔属性集合
 BOOL_ATTRS = {
     "checkable", "checked", "clickable", "enabled", "focusable",
     "focused", "scrollable", "long-clickable", "password", "selected"
 }
-# 配置：仅保留这些属性，其他属性一律删除
+# 保留属性集合（不保留原始 bounds）
 ATTRS = {
-    # 在此列出所有允许保留的属性名称，例如：
     "checkable", "checked", "clickable",
     "focused", "scrollable", "long-clickable", "password", "selected",
-    "text", "class", "bounds","content-desc"
+    "text", "class", "content-desc", "image-desc","visible-to-user"
 }
-
+# 可选保留/删除配置
 KEEP_FALSE_BOOLEAN_ATTRS = {}
 KEEP_EMPTY_STRING_ATTRS = {}
 REMOVE_IF_TRUE_OR_NON_EMPTY = {}
 
-
-def merge_attributes(parent_attrib, child_attrib):
-    merged = child_attrib.copy()
-    for key, p_val in parent_attrib.items():
-        if key in BOOL_ATTRS:
-            c_val = child_attrib.get(key, "false")
-            merged[key] = "true" if (p_val.lower() == "true" or c_val.lower() == "true") else "false"
-        else:
-            c_val = child_attrib.get(key, "")
-            if not c_val.strip() and p_val.strip():
-                merged[key] = p_val
-    return merged
+# 预编译正则
+VALLESS_RE = re.compile(r'\s+([\w-]+)="__VALLESS__"')
 
 
 def merge_single_child_nodes(node):
-    children = list(node)
-    for child in children:
-        merged_child = merge_single_child_nodes(child)
+    """合并只有一个子节点的层级，并向下传递属性和值"""
+    for child in list(node):
+        merged = merge_single_child_nodes(child)
         node.remove(child)
-        node.append(merged_child)
+        node.append(merged)
 
     while len(node) == 1:
         child = node[0]
-        child.attrib = merge_attributes(node.attrib, child.attrib)
-        if node.text and node.text.strip():
-            if child.text and child.text.strip():
-                child.text = node.text.strip() + " " + child.text.strip()
-            else:
-                child.text = node.text.strip()
+        for k, pv in node.attrib.items():
+            cv = child.attrib.get(k, '')
+            if k in BOOL_ATTRS:
+                child.attrib[k] = 'true' if pv.lower() == 'true' or cv.lower() == 'true' else 'false'
+            elif not cv.strip() and pv.strip():
+                child.attrib[k] = pv
+        parent_text = node.text.strip() if node.text and node.text.strip() else ''
+        child_text = child.text.strip() if child.text and child.text.strip() else ''
+        if parent_text:
+            child.text = f"{parent_text} {child_text}".strip()
         node = child
     return node
 
 
-def clean_disallowed_attributes(node):
-    """
-    遍历所有节点，删除不在 ATTRS 列表中的属性。
-    """
-    keys_to_delete = [k for k in list(node.attrib.keys()) if k not in ATTRS]
-    for k in keys_to_delete:
-        del node.attrib[k]
-    for child in node:
-        clean_disallowed_attributes(child)
+# 新增：用于收集点击信息的列表
+compress_info = []
 
 
-def rename_tags_by_class(node):
-    """将节点标签替换为 class 属性值，并删除 class 属性"""
-    class_val = node.attrib.pop('class', None)
-    if class_val:
-        # 如果以 android. 开头，取最后一段
-        if class_val.startswith('android.'):
-            class_val = class_val.split('.')[-1]
-        node.tag = class_val
-    for child in node:
-        rename_tags_by_class(child)
+def process_node(node, parent=None, keep_system_nav=False):
+    """单次递归遍历，合并清理、重命名与中心点计算"""
+    # 在清理前捕获原始 bounds
+    raw_bounds = node.attrib.get('bounds')
 
-def clean_false_attributes(node):
-    keys_to_delete = [
-        k for k, v in node.attrib.items()
-        if k in BOOL_ATTRS and v.lower() == "false" and k not in KEEP_FALSE_BOOLEAN_ATTRS
-    ]
-    for k in keys_to_delete:
-        del node.attrib[k]
-    for child in node:
-        clean_false_attributes(child)
+    # 遍历子节点
+    for child in list(node):
+        process_node(child, node, keep_system_nav)
 
+    # 删除系统导航栏节点
+    if not keep_system_nav and node.attrib.get('package') == 'com.android.systemui':
+        if parent is not None:
+            parent.remove(node)
+        return
 
-def clean_empty_attributes(node):
-    keys_to_delete = [
-        k for k, v in node.attrib.items()
-        if not v.strip() and k not in KEEP_EMPTY_STRING_ATTRS
-    ]
-    for k in keys_to_delete:
-        del node.attrib[k]
-    for child in node:
-        clean_empty_attributes(child)
-
-
-def clean_remove_true_or_non_empty_attributes(node):
-    keys_to_delete = [
-        k for k, v in node.attrib.items()
-        if k in REMOVE_IF_TRUE_OR_NON_EMPTY and (v.lower() == "true" or v.strip())
-    ]
-    for k in keys_to_delete:
-        del node.attrib[k]
-    for child in node:
-        clean_remove_true_or_non_empty_attributes(child)
-
-
-def add_bounds_center_attribute(node):
-    bounds = node.attrib.pop('bounds', "")
-    if bounds:
-        try:
-            bounds_values = bounds.strip("[]").split("][")
-            if len(bounds_values) == 2:
-                left_top = bounds_values[0].split(",")
-                right_bottom = bounds_values[1].split(",")
-                if len(left_top) == 2 and len(right_bottom) == 2:
-                    left, top = map(int, left_top)
-                    right, bottom = map(int, right_bottom)
-                    center_x = (left + right) / 2
-                    center_y = (top + bottom) / 2
-                    node.attrib["center"] = f"[{center_x},{center_y}]"
-        except ValueError:
-            pass
-    for child in node:
-        add_bounds_center_attribute(child)
-
-
-def simplify_true_booleans(node):
-    keys_to_convert = []
-    keys_to_delete = []
+    # 清理并重构属性字典
+    new_attrib = {}
+    clickable = False
+    center = None
 
     for k, v in node.attrib.items():
+        # 删除不在白名单的属性（原始 bounds 已不保留）
+        if k not in ATTRS and k != 'bounds':
+            continue
+        val = v.strip()
         if k in BOOL_ATTRS:
-            if v.lower() == "true":
-                keys_to_convert.append(k)
-            elif v.lower() == "false":
-                keys_to_delete.append(k)
+            low = val.lower()
+            if low == 'false' and k not in KEEP_FALSE_BOOLEAN_ATTRS:
+                continue
+            if (low == 'true' or val) and k in REMOVE_IF_TRUE_OR_NON_EMPTY:
+                continue
+            if low == 'true':
+                new_attrib[k] = '__VALLESS__'
+                if k == 'clickable':
+                    clickable = True
+                continue
+        if k == 'bounds':
+            # 不保留 bounds 原始属性
+            continue
+        if not val and k not in KEEP_EMPTY_STRING_ATTRS:
+            continue
+        new_attrib[k] = v
+    node.attrib = new_attrib
 
-    for k in keys_to_delete:
-        del node.attrib[k]
-    for k in keys_to_convert:
-        node.attrib[k] = "__VALLESS__"  # 防止 ElementTree 报错
+    if raw_bounds:
+        try:
+            parts = raw_bounds.strip('[]').split('][')
+            (x1, y1) = map(int, parts[0].split(','))
+            (x2, y2) = map(int, parts[1].split(','))
+            cx = (x1 + x2) / 2
+            cy = (y1 + y2) / 2
+            center = f"[{cx},{cy}]"
+        except Exception:
+            pass
+    # 仅在 clickable 为真且存在 raw_bounds 时添加 center
+    if clickable:
+        node.attrib['center'] = center
 
-    for child in node:
-        simplify_true_booleans(child)
+    # 收集 info
+    text = node.attrib.get('text', '').strip()
+    image_desc = node.attrib.get('image-desc', '').strip()
+    if text:
+        entry = {"text": f"text: {text}", "center": f"{center}"}
+        if clickable:
+            entry["clickable"] = True
+        compress_info.append(entry)
+    if image_desc:
+        entry = {"text": f"icon: {image_desc}","center": f"{center}"}
+        if clickable:
+            entry["clickable"] = True
+        compress_info.append(entry)
+
+    # 根据 class 重命名标签
+    cls = node.attrib.pop('class', None)
+    if cls:
+        node.tag = cls.split('.')[-1] if cls.startswith('android.') else cls
+
+    # 删除无属性无子节点且文本空白节点
+    if parent is not None and not node.attrib and not list(node) and not (node.text and node.text.strip()):
+        parent.remove(node)
 
 
 def tostring_with_valueless_true(node):
     xml_str = ET.tostring(node, encoding='unicode')
-    # 替换 key="__VALLESS__" 为 key
-    xml_str = re.sub(r'\s+([\w-]+)="__VALLESS__"', r' \1', xml_str)
-    return xml_str
+    return VALLESS_RE.sub(r' \1', xml_str)
 
 
-# ✅ 新增：为了解析 val-less 形式的 XML，补全为 key="true"
-def fix_valueless_attributes_for_parsing(xml_str):
-    # 将 <node clickable> 替换为 <node clickable="true">
-    def replacer(match):
-        tag, attrs = match.groups()
-        fixed_attrs = re.sub(r'\s+(\w+)(?=\s|>|/)', r' \1="true"', attrs)
-        return f"<{tag}{fixed_attrs}>"
-
-    return re.sub(r'<(\w+)((?:\s+\w+)+)\s*/?>', replacer, xml_str)
-
-
-def compressxml(input_path, output_path):
+def compressxml(input_path, output_path, keep_system_nav=False):
+    global compress_info
+    compress_info.clear()
     tree = ET.parse(input_path)
     root = tree.getroot()
 
+    merged = merge_single_child_nodes(root)
+    process_node(merged, None, keep_system_nav)
 
-    merged_root = merge_single_child_nodes(root)
-    clean_disallowed_attributes(merged_root)
-    clean_false_attributes(merged_root)
-    clean_empty_attributes(merged_root)
-    clean_remove_true_or_non_empty_attributes(merged_root)
-    simplify_true_booleans(merged_root)
-    add_bounds_center_attribute(merged_root)
-    rename_tags_by_class(merged_root)
-
-    compressed_str = tostring_with_valueless_true(merged_root)
-    file_name = os.path.basename(input_path)
-    output_file = os.path.join(output_path, file_name)
-
-    with open(output_file, "w", encoding="utf-8") as f:
-        f.write(compressed_str)
-    print(f"✅ 处理完成，结果已保存到：{output_file}")
+    compressed = tostring_with_valueless_true(merged)
+    os.makedirs(output_path, exist_ok=True)
+    outfile = os.path.join(output_path, os.path.basename(input_path))
+    with open(outfile, 'w', encoding='utf-8') as f:
+        f.write(compressed)
+    print(f"✅ 压缩完成，结果保存于: {outfile}")
+    return compress_info
 
 
-def get_compress_xml(ui_hierarchy_xml):
+def get_compress_xml(ui_hierarchy_xml, keep_system_nav=False):
+    global compress_info
+    compress_info.clear()
     root = ET.fromstring(ui_hierarchy_xml)
-    merged_root = merge_single_child_nodes(root)
-    clean_disallowed_attributes(merged_root)
-    clean_false_attributes(merged_root)
-    clean_empty_attributes(merged_root)
-    clean_remove_true_or_non_empty_attributes(merged_root)
-    simplify_true_booleans(merged_root)
-    add_bounds_center_attribute(merged_root)
-    rename_tags_by_class(merged_root)
-    return tostring_with_valueless_true(merged_root)
+    merged = merge_single_child_nodes(root)
+    process_node(merged, None, keep_system_nav)
+    return tostring_with_valueless_true(merged), compress_info
 
 
 def parse_bounds(bounds_str):
@@ -209,50 +171,32 @@ def parse_bounds(bounds_str):
         return x1, y1, x2, y2
     except Exception:
         return 0, 0, 0, 0
+# 键盘激活检测保持原有逻辑
 
 
-def is_keyboard_active(ui_hierarchy_xml, screen_height, known_ime_packages=None):
-    if known_ime_packages is None:
-        known_ime_packages = [
-            "com.google.android.inputmethod", "com.sohu.inputmethod",
-            "com.baidu.input", "com.huawei.ime", "com.nolan.inputmethod",
-            "com.iflytek.inputmethod", "com.tencent.qqpinyin"
-        ]
-
+def is_keyboard_active(ui_xml, height, imes=None):
+    imes = imes or [
+        'com.google.android.inputmethod', 'com.sohu.inputmethod', 'com.baidu.input',
+        'com.huawei.ime', 'com.nolan.inputmethod', 'com.iflytek.inputmethod',
+        'com.tencent.qqpinyin'
+    ]
     try:
-        root = ET.fromstring(ui_hierarchy_xml)
-    except Exception as e:
-        print("XML 解析失败:", e)
+        root = ET.fromstring(ui_xml)
+    except:
         return False
-
-    for node in root.iter("node"):
-        res_id = node.attrib.get("resource-id", "")
-        class_name = node.attrib.get("class", "")
-        visible = node.attrib.get("visible-to-user", "false") == "true"
-        bounds_str = node.attrib.get("bounds", "")
-        x1, y1, x2, y2 = parse_bounds(bounds_str)
-
-        if any(res_id.startswith(pkg) for pkg in known_ime_packages):
-            if visible and y2 >= screen_height * 0.85:
+    for node in root.iter():
+        rid = node.attrib.get('resource-id', '')
+        cls = node.attrib.get('class', '')
+        vis = node.attrib.get('visible-to-user', 'false') == 'true'
+        bounds = node.attrib.get('bounds', '')
+        _, _, _, y2 = parse_bounds(bounds)
+        if vis and (rid.startswith(tuple(imes)) or rid in ['android:id/input_method_nav_buttons',
+                                                           'com.github.uiautomator:id/keyboard'] or 'keyboard' in cls.lower() or 'ime' in cls.lower()):
+            if y2 >= height * 0.85:
                 return True
-        if res_id == "android:id/input_method_nav_buttons" and visible:
-            return True
-        if "keyboard" in class_name.lower() or "ime" in class_name.lower():
-            if visible and y2 >= screen_height * 0.85:
-                return True
-
     return False
 
 
-if __name__ == "__main__":
-    input_xml = "../../assm/window_dump7.xml"
-    output_dir = ""
-    # 默认以 'r'（只读）模式打开，编码为系统默认（通常 utf-8）
-    # with open("Fairy/Fairy/tools/assm/window_dump7.xml", "r", encoding="utf-8") as f:
-    #     content = f.read()  # 读取整个文件为字符串
-    # if is_keyboard_active(content, 2400):
-    #     print("✅ 输入键盘当前已激活")
-    # else:
-    #     print("❌ 输入键盘未激活")
-
-    compressxml(input_xml, output_dir)
+if __name__ == '__main__':
+    info = compressxml('window_dump-cleaned.xml', '../out')
+    print(info)

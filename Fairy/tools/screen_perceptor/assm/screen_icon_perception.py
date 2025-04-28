@@ -23,6 +23,14 @@ def extract_icons_and_attach_id(root, screenshot_path, output_img_dir):
         x1, y1, x2, y2 = parse_bounds(bounds)
         if x2 > x1 and y2 > y1:
             cropped = image.crop((x1, y1, x2, y2))
+            # 确保宽度和高度均大于10像素，否则等比例放大
+            w, h = cropped.size
+            if w <= 10 or h <= 10:
+                # 目标尺寸需大于10像素，取11像素为下限
+                scale = max(11 / w, 11 / h)
+                new_w = int(w * scale)
+                new_h = int(h * scale)
+                cropped = cropped.resize((new_w, new_h), Image.LANCZOS)
             fname = f"{count}.png"
             cropped.save(os.path.join(output_img_dir, fname))
             node.attrib["image-id"] = count

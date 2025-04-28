@@ -49,28 +49,28 @@ class ScreenIconPerception:
         self.caption_model_api_key = caption_model_api_key
 
     def get_icon_perception(self, screenshot_file_info: ScreenFileInfo, ui_hierarchy_xml):
-        logger.bind(log_tag="fairy_sys").info("[Icon Perception] TASK in progress...")
+        logger.bind(log_tag="fairy_sys").info("[Image Perception] TASK in progress...")
         root = ET.fromstring(ui_hierarchy_xml)
-        icon_temp_path = f"{screenshot_file_info.file_path}/{screenshot_file_info.get_screenshot_filename(no_type=True)}/"
-        os.makedirs(icon_temp_path, exist_ok=True)
-        extract_icons_and_attach_id(root, screenshot_file_info.get_screenshot_fullpath(), icon_temp_path)
+        image_temp_path = f"{screenshot_file_info.file_path}/{screenshot_file_info.get_screenshot_filename(no_type=True)}/"
+        os.makedirs(image_temp_path, exist_ok=True)
+        extract_icons_and_attach_id(root, screenshot_file_info.get_screenshot_fullpath(), image_temp_path)
 
-        images = os.listdir(icon_temp_path)
+        images = os.listdir(image_temp_path)
         if len(images) > 0:
             images = sorted(images, key=lambda x: int(x.split('/')[-1].split('.')[0]))
-            prompt = 'This image is an icon from a phone screen. Please briefly describe this icon in one sentence.'
+            prompt = 'This image is an icon/image from a phone screen. Please briefly describe this icon/image in one sentence.'
 
             for i in range(len(images)):
-                images[i] = os.path.join(icon_temp_path, images[i])
-            desc_map = self._generate_api(images, prompt)
+                images[i] = os.path.join(image_temp_path, images[i])
+            desc_map = self._build_requests(images, prompt)
             ui_hierarchy_xml = annotate_xml_with_descriptions(root, desc_map)
-        logger.bind(log_tag="fairy_sys").info("[Icon Perception] TASK completed.")
+        logger.bind(log_tag="fairy_sys").info("[Image Perception] TASK completed.")
         return ui_hierarchy_xml
 
-    def _generate_api(self, images, query):
+    def _build_requests(self, images, query):
         icon_map = {}
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = {executor.submit(self._process_image, image, query): i for i, image in
+            futures = {executor.submit(self._build_single_request, image, query): i for i, image in
                        enumerate(images)}
 
             for future in concurrent.futures.as_completed(futures):
@@ -80,16 +80,23 @@ class ScreenIconPerception:
 
         return icon_map
 
-    def _process_image(self, image, query):
+    def _build_single_request(self, image, query):
         image_path = f"file://{os.path.abspath(image)}"
-        messages = [{'role': 'user',
-                     'content': [{'image': image_path},
-                                 {'text': query}]}]
-        response = MultiModalConversation.call(api_key=self.caption_model_api_key,
+        messages = [
+            {
+                'role': 'user',
+                'content': [
+                    {'image': image_path},
+                    {'text': query}
+                ]
+            }
+        ]
+        try:
+            response = MultiModalConversation.call(api_key=self.caption_model_api_key,
                                                model=self.caption_model,
                                                messages=messages)
-        try:
             response = response['output']['choices'][0]['message']['content'][0]["text"]
-        except:
+        except Exception as e:
+            logger.bind(log_tag="fairy_sys").warning(f"[Image Perception] Image Perception FAILS and returns the default result, reason: {e}")
             response = "This is an icon."
         return response

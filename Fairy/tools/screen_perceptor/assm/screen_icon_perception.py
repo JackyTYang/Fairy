@@ -1,8 +1,9 @@
+import base64
 import concurrent
 import os
 from loguru import logger
 from PIL import Image
-from dashscope import MultiModalConversation
+from openai import OpenAI
 
 from Fairy.info_entity import ScreenFileInfo
 from Fairy.tools.screen_perceptor.assm.compressXML import parse_bounds
@@ -13,8 +14,7 @@ def extract_icons_and_attach_id(root, screenshot_path, output_img_dir):
     os.makedirs(output_img_dir, exist_ok=True)
     image = Image.open(screenshot_path)
     count = 0
-    # 找到所有 ImageView
-    # 注意：在 uiautomator2 的 dump 里，所有控件标签都是 <node>
+    # 找到所有 ImageView，在 uiautomator2 的 dump 里，所有控件标签都是 <node>
     image_nodes = root.findall(".//node[@class='android.widget.ImageView']")
     for node in image_nodes:
         bounds = node.attrib.get("bounds", "")
@@ -49,12 +49,22 @@ def annotate_xml_with_descriptions(root, desc_map):
     return ET.tostring(root, encoding='utf-8').decode('utf-8')
 
 
+#  base 64 编码格式
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
+
+
 class ScreenIconPerception:
     def __init__(self,
-                 caption_model="qwen-vl-plus",
-                 caption_model_api_key="sk-d4e50bd7e07747b4827611c28da95c23"):
-        self.caption_model = caption_model
-        self.caption_model_api_key = caption_model_api_key
+                 model="qwen-vl-plus",
+                 api_key="sk-d4e50bd7e07747b4827611c28da95c23",
+                 base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"):
+        self.model = model
+        self.client = OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+        )
 
     def get_icon_perception(self, screenshot_file_info: ScreenFileInfo, ui_hierarchy_xml):
         logger.bind(log_tag="fairy_sys").info("[Image Perception] TASK in progress...")
@@ -89,22 +99,26 @@ class ScreenIconPerception:
         return icon_map
 
     def _build_single_request(self, image, query):
-        image_path = f"file://{os.path.abspath(image)}"
-        messages = [
-            {
-                'role': 'user',
-                'content': [
-                    {'image': image_path},
-                    {'text': query}
-                ]
-            }
-        ]
+        base64_image = encode_image(os.path.abspath(image))
         try:
-            response = MultiModalConversation.call(api_key=self.caption_model_api_key,
-                                               model=self.caption_model,
-                                               messages=messages)
-            response = response['output']['choices'][0]['message']['content'][0]["text"]
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{base64_image}"},
+                            },
+                            {"type": "text", "text": query},
+                        ],
+                    }
+                ],
+            )
+            response = response.choices[0].message.content
         except Exception as e:
-            logger.bind(log_tag="fairy_sys").warning(f"[Image Perception] Image Perception FAILS and returns the default result, reason: {e}")
+            logger.bind(log_tag="fairy_sys").warning(
+                f"[Image Perception] Image Perception FAILS and returns the default result, reason: {e}")
             response = "This is an icon."
         return response

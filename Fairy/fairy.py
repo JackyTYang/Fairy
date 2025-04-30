@@ -12,12 +12,15 @@ from Fairy.agents.app_executor_agents.app_planner_agent.app_planner_agent import
 from Fairy.agents.app_executor_agents.app_planner_agent.app_reflector_agent import AppReflectorAgent
 from Fairy.agents.app_executor_agents.app_planner_agent.app_replanner_for_act_exec import AppRePlannerForActExecAgent
 from Fairy.agents.app_executor_agents.app_planner_agent.app_replanner_for_usr_chat import AppRePlannerForUsrChatAgent
-from Fairy.agents.user_interactor_agent import UserInteractorAgent
+from Fairy.agents.global_planner_agents.global_planner_agent import GlobalPlannerAgent
+from Fairy.agents.app_executor_agents.user_interactor_agent import UserInteractorAgent
+from Fairy.agents.global_planner_agents.global_replanner_agent import GlobalRePlannerAgent
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.memory.long_time_memory_manager import LongTimeMemoryManager
 from Fairy.memory.short_time_memory_manager import ShortTimeMemoryManager
 from Fairy.message_entity import EventMessage
 from Fairy.tools.mobile_controller.action_executor import ActionExecutor
+from Fairy.tools.mobile_controller.app_info_manager import AppInfoManager
 from Fairy.tools.screen_perceptor.screen_perceptor import ScreenPerceptor
 from Fairy.tools.task_manager import TaskManager
 from Fairy.tools.user_chat import UserChat
@@ -62,6 +65,7 @@ class FairyCore:
         # 新建文件夹
         os.mkdir(self._config.get_screenshot_temp_path())
         os.mkdir(self._config.get_log_temp_path())
+        os.mkdir(self._config.get_short_time_memory_restore_point_path())
 
         # 配置全局日志
         logger.remove(0)
@@ -87,20 +91,27 @@ class FairyCore:
 
         runtime = CitlaliRuntime()
         runtime.run()
+        runtime.register(lambda: GlobalPlannerAgent(runtime, self._config))
+        runtime.register(lambda: GlobalRePlannerAgent(runtime, self._config))
+
         runtime.register(lambda: AppPlannerAgent(runtime, self._config))
         runtime.register(lambda: AppReflectorAgent(runtime, self._config))
         runtime.register(lambda: AppRePlannerForActExecAgent(runtime, self._config))
         runtime.register(lambda: AppRePlannerForUsrChatAgent(runtime, self._config))
         runtime.register(lambda: AppActionDeciderAgent(runtime, self._config))
-        runtime.register(lambda: ActionExecutor(runtime, self._config))
-        runtime.register(lambda: ScreenPerceptor(runtime, self._config))
         runtime.register(lambda: KeyInfoExtractorAgent(runtime, self._config))
         runtime.register(lambda: UserInteractorAgent(runtime, self._config))
+
+        runtime.register(lambda: ActionExecutor(runtime, self._config))
+        runtime.register(lambda: ScreenPerceptor(runtime, self._config))
+        runtime.register(lambda: AppInfoManager(runtime, self._config))
         runtime.register(lambda: UserChat(runtime, self._config))
-        runtime.register(lambda: ShortTimeMemoryManager(runtime))
+
+        runtime.register(lambda: ShortTimeMemoryManager(runtime, self._config))
         runtime.register(lambda: LongTimeMemoryManager(runtime, self._config))
+
         runtime.register(lambda: TaskManager(runtime))
-        await runtime.publish("app_channel", EventMessage(EventType.Task, EventStatus.CREATED, {
-            "instruction": instruction
+        await runtime.publish("app_channel", EventMessage(EventType.GlobalPlan, EventStatus.CREATED, {
+            "user_instruction": instruction
         }))
         await runtime.stop()

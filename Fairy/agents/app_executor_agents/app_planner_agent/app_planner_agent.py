@@ -20,7 +20,7 @@ from Fairy.type import EventType, EventStatus, CallType
 class AppPlannerAgent(Agent):
     def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
-            content="You are a helpful AI assistant for operating mobile phones. Your goal is to devise high-level plans to achieve the user's requests. Think as if you are a human user operating the phone, but if you are faced with uncertain options, you should actively interact with users.",
+            content="You are part of a helpful AI assistant for operating mobile phones and your identity is a planner. Your goal is to devise high-level plans to achieve the user's requests. Think as if you are a human user operating the phone, but if you are faced with uncertain options, you should actively interact with users.",
             type="SystemMessage")]
         super().__init__(runtime, "AppPlannerAgent", config.model_client, system_messages)
         self.non_visual_mode = config.non_visual_mode
@@ -66,7 +66,7 @@ class AppPlannerAgent(Agent):
 
         plan_event_content = await self.request_llm(
             self.build_init_prompt(
-                instruction_memory,
+                instruction_memory.get_instruction(),
                 current_action_memory[ActionMemoryType.StartScreenPerception],
                 tips
             ),

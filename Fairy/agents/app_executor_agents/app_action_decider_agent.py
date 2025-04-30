@@ -20,7 +20,7 @@ from Fairy.tools.mobile_controller.action_type import ATOMIC_ACTION_SIGNITURES, 
 class AppActionDeciderAgent(Agent):
     def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
-            content="You are a helpful AI assistant for operating mobile phones. Your goal is to choose the correct atomic actions to complete the user's instruction. Think as if you are a human user operating the phone.",
+            content="You are part of a helpful AI assistant for operating mobile phones and your identity is an action decider. Your goal is to choose the correct atomic actions to complete the user's instruction. Think as if you are a human user operating the phone.",
             type="SystemMessage")]
         super().__init__(runtime, " AppActionDeciderAgent", config.model_client, system_messages)
         self.non_visual_mode = config.non_visual_mode
@@ -85,7 +85,7 @@ class AppActionDeciderAgent(Agent):
 
         event_content = await self.request_llm(
             self.build_prompt(
-                instruction_memory,
+                instruction_memory.get_instruction(),
                 current_action_memory[ActionMemoryType.Plan],
                 current_action_memory[ActionMemoryType.StartScreenPerception],
                 historical_action_memory[ActionMemoryType.Action],

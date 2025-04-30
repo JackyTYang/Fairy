@@ -25,7 +25,7 @@ from Fairy.type import EventType, EventStatus, CallType
 class AppRePlannerForActExecAgent(Agent):
     def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
-            content="You are a helpful AI assistant for operating mobile phones. Your goal is to verify whether the last action produced the expected behavior, to keep track of the progress and devise high-level plans to achieve the user's requests. Think as if you are a human user operating the phone, but if you are faced with uncertain options, you should actively interact with users.",
+            content="You are part of a helpful AI assistant for operating mobile phones and your identity is a planner. Your goal is to verify whether the last action produced the expected behavior, to keep track of the progress and devise high-level plans to achieve the user's requests. Think as if you are a human user operating the phone, but if you are faced with uncertain options, you should actively interact with users.",
             type="SystemMessage")]
         super().__init__(runtime, "AppRePlannerForActExecAgent", config.model_client, system_messages)
 
@@ -100,6 +100,12 @@ class AppRePlannerForActExecAgent(Agent):
         key_info_memory = memory[ShortMemoryCallType.GET_Key_Info]
         current_action_memory = memory[ShortMemoryCallType.GET_Current_Action_Memory]
 
+        # 如果是standalone_reflector_mode，检查任务是否已经结束
+        if self.standalone_reflector_mode:
+            if is_finished_action(current_action_memory[ActionMemoryType.ActionResult], current_action_memory[ActionMemoryType.Action]):
+                logger.bind(log_tag="fairy_sys").warning(f"{self.tag} The action has not been completed yet, skipped")
+                return
+
         # 从LongTimeMemoryManager获取Tips
         long_memory = await (await self.call("LongTimeMemoryManager",
             CallMessage(CallType.Memory_GET,{
@@ -118,7 +124,7 @@ class AppRePlannerForActExecAgent(Agent):
 
         plan_event_content, reflection_event_content = await self.request_llm(
             self.build_prompt(
-                instruction_memory,
+                instruction_memory.get_instruction(),
                 current_action_memory[ActionMemoryType.Plan],
                 current_action_memory[ActionMemoryType.Action],
                 current_action_memory[ActionMemoryType.ActionResult] if self.standalone_reflector_mode else None,
@@ -134,7 +140,7 @@ class AppRePlannerForActExecAgent(Agent):
             await self.publish("app_channel", EventMessage(EventType.Reflection, EventStatus.DONE, reflection_event_content))
 
         # 发布Plan事件，如果不是standalone_reflector_mode且is_finished_action表明行动已经完成执行，则任务结束
-        if self.standalone_reflector_mode or not is_finished_action(reflection_event_content, action_memory[ActionMemoryType.Action]):
+        if self.standalone_reflector_mode or not is_finished_action(reflection_event_content, current_action_memory[ActionMemoryType.Action]):
             await asyncio.sleep(5)
             await self.publish("app_channel", EventMessage(EventType.Plan, EventStatus.DONE, plan_event_content))
         else:

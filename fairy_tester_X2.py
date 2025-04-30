@@ -2,7 +2,7 @@ import asyncio
 import os
 
 from Citlali.core.runtime import CitlaliRuntime
-from Fairy.agents.global_planner import GlobalPlannerAgent
+from Fairy.agents.global_planner_agents.global_planner_agent import GlobalPlannerAgent
 from Fairy.config.model_config import CoreChatModelConfig, RAGChatModelConfig, RAGEmbedModelConfig
 from Fairy.fairy import FairyCore
 from Fairy.config.fairy_config import FairyConfig

@@ -78,5 +78,8 @@ class FairyConfig:
     def get_log_temp_path(self):
         return os.path.join(self.task_temp_path, "log")
 
+    def get_short_time_memory_restore_point_path(self):
+        return os.path.join(self.task_temp_path, "STM_restore_point")
+
     def get_adb_path(self):
         return (self._adb_path + f" -s {self.device}") if self.device is not None else self._adb_path

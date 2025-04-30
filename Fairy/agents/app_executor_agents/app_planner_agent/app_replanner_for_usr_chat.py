@@ -20,7 +20,7 @@ from Fairy.type import EventType, EventStatus, CallType
 class AppRePlannerForUsrChatAgent(Agent):
     def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
-            content="You are a helpful AI assistant for operating mobile phones. Your goal is to verify whether the last action produced the expected behavior, to keep track of the progress and devise high-level plans to achieve the user's requests. Think as if you are a human user operating the phone, but if you are faced with uncertain options, you should actively interact with users.",
+            content="You are part of a helpful AI assistant for operating mobile phones and your identity is a planner. Your goal is to verify whether the last action produced the expected behavior, to keep track of the progress and devise high-level plans to achieve the user's requests.",
             type="SystemMessage")]
         super().__init__(runtime, "RePlannerForUsrChat", config.model_client, system_messages)
 
@@ -50,7 +50,7 @@ class AppRePlannerForUsrChatAgent(Agent):
 
         plan_event_content = await self.request_llm(
             self.build_after_user_interaction_prompt(
-                instruction_memory,
+                instruction_memory.get_instruction(),
                 current_action_memory[ActionMemoryType.Plan],
                 message.event_content,
                 current_action_memory[ActionMemoryType.StartScreenPerception],

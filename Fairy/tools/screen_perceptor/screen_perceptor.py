@@ -38,9 +38,13 @@ class ScreenPerceptor(Worker):
 
     async def _on_screen_percept(self, message: EventMessage, message_context):
         logger.bind(log_tag="fairy_sys").info("[Get Screenshot] and [Perception Information] Task in progress...")
+
+        current_activity_info = await self.screenshot_tool.get_current_activity()
         screenshot_file_info, perception_infos = await self.get_screen_description()
+        screen_info = ScreenInfo(screenshot_file_info, perception_infos, current_activity_info)
+
         logger.bind(log_tag="fairy_sys").info("[Get Screenshot] and [Perception Information] Task completed.")
-        await self.publish("app_channel", EventMessage(EventType.ScreenPerception, EventStatus.DONE, ScreenInfo(screenshot_file_info, perception_infos)))
+        await self.publish("app_channel", EventMessage(EventType.ScreenPerception, EventStatus.DONE, screen_info))
 
     async def get_screen_description(self):
         screenshot_file_info, ui_hierarchy_xml = await self.screenshot_tool.get_screen()

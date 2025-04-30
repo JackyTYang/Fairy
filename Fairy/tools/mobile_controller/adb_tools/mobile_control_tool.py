@@ -24,23 +24,8 @@ class AdbMobileController(MobileController):
     def __init__(self, config):
         self.adb_path = config.get_adb_path()
 
-    async def execute_actions(self, actions: List[Dict[str, AtomicActionType | dict]]) -> None:
-        for action in actions:
-            atomic_action, args = AtomicActionType(action["name"]), action["arguments"]
-            await self.execute_action(atomic_action, args)
-
-    async def execute_action(self, atomic_action: AtomicActionType, args) -> str | None | list[str]:
+    async def custom_execute_action(self, atomic_action: AtomicActionType, args) -> str | None | list[str]:
         match atomic_action:
-            case AtomicActionType.Wait:
-                await asyncio.sleep(args["wait_time"])
-                return None
-            case AtomicActionType.Finish:
-                logger.bind(log_tag="fairy_sys").info("All requirements in the user's Instruction have been completed.")
-                return None
-            case AtomicActionType.NeedInteraction:
-                await asyncio.sleep(1)
-                logger.bind(log_tag="fairy_sys").warning("Executor discovery requires user interaction.")
-                return None
             case AtomicActionType.ListApps:
                 result = await self._run_command(AtomicActionType.ListApps, ATOMIC_ACTION_COMMAND[AtomicActionType.ListApps], args)
                 result = result.replace("package:","").splitlines()

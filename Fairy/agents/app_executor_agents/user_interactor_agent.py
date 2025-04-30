@@ -62,7 +62,7 @@ class UserInteractorAgent(Agent):
             screenshot_prompt = "The following text description (e.g. JSON or XML) is converted from a screenshots of your phone to show the current state"
 
         interactor_event_content = await self.request_llm(
-            self.build_init_prompt(instruction_memory,
+            self.build_init_prompt(instruction_memory.get_instruction(),
                                    current_action_memory[ActionMemoryType.Plan],
                                    current_action_memory[ActionMemoryType.StartScreenPerception],
                                    key_info_memory,

@@ -20,7 +20,7 @@ from Fairy.type import EventType, EventStatus, CallType
 class AppReflectorAgent(Agent):
     def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
-            content="You are a helpful AI assistant for operating mobile phones. Your goal is to verify whether the last action produced the expected behavior, to keep track of the progress.",
+            content="You are part of a helpful AI assistant for operating mobile phones and your identity is a reflector. Your goal is to verify whether the last action produced the expected behavior, to keep track of the progress.",
             type="SystemMessage")]
         super().__init__(runtime, "AppReflectorAgent", config.model_client, system_messages)
 
@@ -71,7 +71,7 @@ class AppReflectorAgent(Agent):
 
         reflection_event_content = await self.request_llm(
             self.build_prompt(
-                instruction_memory,
+                instruction_memory.get_instruction(),
                 current_action_memory[ActionMemoryType.Plan],
                 current_action_memory[ActionMemoryType.Action],
                 current_action_memory[ActionMemoryType.StartScreenPerception],

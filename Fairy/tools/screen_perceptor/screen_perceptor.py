@@ -9,7 +9,7 @@ from Fairy.info_entity import ScreenInfo
 from Fairy.message_entity import EventMessage
 from Fairy.tools.screen_perceptor.assm.perceptor import AdaptiveSemanticScreenModeling
 from Fairy.tools.screen_perceptor.fvp.perceptor import FineGrainedVisualPerceptor
-from Fairy.type import EventStatus, EventType
+from Fairy.type import EventType
 
 
 class ScreenPerceptor(Worker):
@@ -27,12 +27,12 @@ class ScreenPerceptor(Worker):
             raise ValueError("ASSM requires uiautomator screenshot tool, but adb is used.")
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.ActionExecution and message.status == EventStatus.DONE)
+              listen_filter=lambda message: message.event == EventType.ActionExecution_DONE)
     async def on_screen_percept(self, message: EventMessage, message_context):
         await self._on_screen_percept(message, message_context)
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.Task and message.status == EventStatus.CREATED)
+              listen_filter=lambda message: message.event == EventType.Task_CREATED)
     async def on_first_screen_percept(self, message: EventMessage, message_context):
         await self._on_screen_percept(message, message_context)
 
@@ -44,7 +44,7 @@ class ScreenPerceptor(Worker):
         screen_info = ScreenInfo(screenshot_file_info, perception_infos, current_activity_info)
 
         logger.bind(log_tag="fairy_sys").info("[Get Screenshot] and [Perception Information] Task completed.")
-        await self.publish("app_channel", EventMessage(EventType.ScreenPerception, EventStatus.DONE, screen_info))
+        await self.publish("app_channel", EventMessage(EventType.ScreenPerception_DONE, screen_info))
 
     async def get_screen_description(self):
         screenshot_file_info, ui_hierarchy_xml = await self.screenshot_tool.get_screen()

@@ -11,7 +11,7 @@ plan_steps = [
 ]
 
 plan_output = [
-    "ins_language: Language used for User Instruction. Please use standard language abbreviations (e.g. zh, en, fr, de).",
+    "ins_language: Language used for User Instruction. Please use standard language name (e.g. Chinese(中文), English, French(Français), German(Deutsch)).",
     "global_plan_thought: A detailed explanation of your rationale for the plan. Please pay special attention to the contents of the 'NOTE' and check it.",
     "global_plan:  All plans for completion of 'user instruction'. Check to see if any key steps have been missed. The plan consists of ONE or MORE tasks, export it as a list; the tasks should include 3 keys: \n"
     "a. app_package_name: The name of the package of the app that performs the current task (Must be consistent with what is provided in the list); \n"

@@ -24,7 +24,7 @@ from Fairy.tools.mobile_controller.app_info_manager import AppInfoManager
 from Fairy.tools.screen_perceptor.screen_perceptor import ScreenPerceptor
 from Fairy.tools.task_manager import TaskManager
 from Fairy.tools.user_chat import UserChat
-from Fairy.type import EventType, EventStatus
+from Fairy.type import EventType
 from Fairy.utils.task_executor import TaskExecutor
 
 os.environ["ADB_PATH"] = "C:/Users/neosunjz/AppData/Local/Android/Sdk/platform-tools/adb.exe"
@@ -111,7 +111,7 @@ class FairyCore:
         runtime.register(lambda: LongTimeMemoryManager(runtime, self._config))
 
         runtime.register(lambda: TaskManager(runtime))
-        await runtime.publish("app_channel", EventMessage(EventType.GlobalPlan, EventStatus.CREATED, {
+        await runtime.publish("app_channel", EventMessage(EventType.GlobalPlan_CREATED, {
             "user_instruction": instruction
         }))
         await runtime.stop()

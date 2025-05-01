@@ -15,7 +15,7 @@ from Fairy.config.fairy_config import FairyConfig
 from Fairy.info_entity import GlobalPlanInfo, ActionInfo, ProgressInfo, PlanInfo, InstructionInfo
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, EventStatus, CallType
+from Fairy.type import EventType, CallType
 
 
 class GlobalRePlannerAgent(Agent):
@@ -27,25 +27,27 @@ class GlobalRePlannerAgent(Agent):
 
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.TaskFinish and msg.status == EventStatus.CREATED)
+              listen_filter=lambda msg: msg.event == EventType.Task_DONE)
     async def on_global_plan(self, message:EventMessage , message_context):
         logger.bind(log_tag="fairy_sys").debug("[Global RePlan] TASK in progress...")
         app_info_list = await (await self.call(
             "AppInfoManager",
             CallMessage(CallType.App_Info_GET,{})
         ))
-        user_instruction = message.event_content["user_instruction"]
 
         short_memory = await (await self.call(
             "ShortTimeMemoryManager",
             CallMessage(CallType.Memory_GET,{
+                ShortMemoryCallType.GET_Global_Instruction: None,
                 ShortMemoryCallType.GET_Global_Plan_Info:None,
                 ShortMemoryCallType.GET_Instruction:None,
                 ShortMemoryCallType.GET_Historical_Action_Memory:{ActionMemoryType.Plan: 1, ActionMemoryType.Action:float("INF"), ActionMemoryType.ActionResult:float("INF")},
                 ShortMemoryCallType.GET_Key_Info:None
             })
         ))
+        user_instruction = short_memory[ShortMemoryCallType.GET_Global_Instruction]
         global_plan_info = short_memory[ShortMemoryCallType.GET_Global_Plan_Info]
+
         app_instruction_memory = short_memory[ShortMemoryCallType.GET_Instruction]
         app_historical_action_memory = short_memory[ShortMemoryCallType.GET_Historical_Action_Memory]
         app_key_info_memory = short_memory[ShortMemoryCallType.GET_Key_Info]
@@ -63,7 +65,7 @@ class GlobalRePlannerAgent(Agent):
             )
         )
 
-        await self.publish("app_channel", EventMessage(EventType.GlobalPlan, EventStatus.DONE, global_plan))
+        await self.publish("app_channel", EventMessage(EventType.GlobalPlan_DONE, global_plan))
         logger.bind(log_tag="fairy_sys").info("[Global RePlan] TASK completed.")
 
     @staticmethod

@@ -19,7 +19,7 @@ from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
 from Fairy.memory.long_time_memory_manager import LongMemoryCallType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, EventStatus, CallType
+from Fairy.type import EventType, CallType
 
 
 class AppRePlannerForActExecAgent(Agent):
@@ -35,7 +35,7 @@ class AppRePlannerForActExecAgent(Agent):
         self.tag = "[Plan (Standalone Reflector Mode)]" if self.standalone_reflector_mode else "[RePlan (Hybrid Reflector Mode)]"
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.ScreenPerception and msg.status == EventStatus.DONE)
+              listen_filter=lambda msg: msg.event == EventType.ScreenPerception_DONE)
     async def on_plan_with_hybrid_reflector_mode(self, message: EventMessage, message_context):
         if self.standalone_reflector_mode:
             logger.bind(log_tag="fairy_sys").warning("[Plan (Hybrid Reflector Mode)] Configuration item 'selection_policy' is 'standalone' mode, skipped")
@@ -44,7 +44,7 @@ class AppRePlannerForActExecAgent(Agent):
             await self.do_plan(message, message_context)
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.Reflection and msg.status == EventStatus.DONE)
+              listen_filter=lambda msg: msg.event == EventType.Reflection_DONE)
     async def on_plan_with_standalone_reflector_mode(self, message: EventMessage, message_context):
         if self.standalone_reflector_mode:
             await self.do_plan(message, message_context)
@@ -137,14 +137,14 @@ class AppRePlannerForActExecAgent(Agent):
         )
         # 如果不是standalone_reflector_mode，还需要发布Reflection事件
         if not self.standalone_reflector_mode:
-            await self.publish("app_channel", EventMessage(EventType.Reflection, EventStatus.DONE, reflection_event_content))
+            await self.publish("app_channel", EventMessage(EventType.Reflection_DONE, reflection_event_content))
 
         # 发布Plan事件，如果不是standalone_reflector_mode且is_finished_action表明行动已经完成执行，则任务结束
         if self.standalone_reflector_mode or not is_finished_action(reflection_event_content, current_action_memory[ActionMemoryType.Action]):
             await asyncio.sleep(5)
-            await self.publish("app_channel", EventMessage(EventType.Plan, EventStatus.DONE, plan_event_content))
+            await self.publish("app_channel", EventMessage(EventType.Plan_DONE, plan_event_content))
         else:
-            await self.publish("app_channel", EventMessage(EventType.TaskFinish, EventStatus.CREATED))
+            await self.publish("app_channel", EventMessage(EventType.Task_DONE))
 
         logger.bind(log_tag="fairy_sys").info(f"{self.tag} TASK completed.")
 

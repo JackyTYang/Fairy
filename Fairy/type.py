@@ -2,21 +2,19 @@ from enum import Enum
 
 
 class EventType(Enum):
-    GlobalPlan = 10
-    Task = 0
-    Plan = 1
-    ActionExecution = 2
-    ScreenPerception = 3
-    Reflection = 4
-    KeyInfoExtraction = 5
-    UserInteraction = 6
-    UserChat = 7
-    TaskFinish = 8
-
-class EventStatus(Enum):
-    CREATED = 0
-    DONE = 1
-    FAILED = -1
+    GlobalPlan_CREATED = "GlobalPlan_CREATED"
+    GlobalPlan_DONE = "GlobalPlan_DONE"
+    Task_CREATED = "Task_CREATED"
+    Plan_DONE = "Plan_DONE"
+    ActionExecution_CREATED = "ActionExecution_CREATED"
+    ActionExecution_DONE = "ActionExecution_DONE"
+    ScreenPerception_DONE = "ScreenPerception_DONE"
+    Reflection_DONE = "Reflection_DONE"
+    KeyInfoExtraction_DONE = "KeyInfoExtraction_DONE"
+    UserInteraction_DONE = "UserInteraction_DONE"
+    UserChat_CREATED = "UserChat_CREATED"
+    UserChat_DONE = "UserChat_DONE"
+    Task_DONE = "Task_DONE"
 
 class CallType(Enum):
     Memory_GET = 1

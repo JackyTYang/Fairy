@@ -7,7 +7,7 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Fairy.config.fairy_config import MobileControllerType
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, EventStatus, CallType
+from Fairy.type import EventType, CallType
 from Fairy.tools.mobile_controller.adb_tools.mobile_control_tool import AdbMobileController
 from Fairy.tools.mobile_controller.ui_automator_tools.mobile_control_tool import UiAutomatorMobileController
 from Fairy.tools.mobile_controller.action_type import AtomicActionType
@@ -28,12 +28,12 @@ class ActionExecutor(Worker):
         return await self.execute_action(message.call_content["atomic_action"], message.call_content["args"])
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.ActionExecution and message.status == EventStatus.CREATED)
+              listen_filter=lambda message: message.event == EventType.ActionExecution_CREATED)
     async def on_action_create(self, message: EventMessage, message_context):
         logger.bind(log_tag="fairy_sys").debug("[Execute action] TASK in progress...")
         await self.execute_actions(message.event_content.actions)
         logger.bind(log_tag="fairy_sys").debug("[Execute action] TASK completed.")
-        await self.publish("app_channel", EventMessage(EventType.ActionExecution, EventStatus.DONE, message.event_content))
+        await self.publish("app_channel", EventMessage(EventType.ActionExecution_DONE, message.event_content))
 
     async def execute_action(self, atomic_action: AtomicActionType, args) -> str  | None | list[str]:
         return await self.control_tool.execute_action(atomic_action, args)

@@ -12,7 +12,7 @@ from Fairy.config.fairy_config import FairyConfig
 from Fairy.info_entity import PlanInfo, ScreenInfo, UserInteractionInfo
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, EventStatus, CallType
+from Fairy.type import EventType, CallType
 
 
 class UserInteractorAgent(Agent):
@@ -24,7 +24,7 @@ class UserInteractorAgent(Agent):
         self.non_visual_mode = config.non_visual_mode
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.Plan and msg.status == EventStatus.DONE)
+              listen_filter=lambda msg: msg.event == EventType.Plan_DONE)
     async def on_user_interact(self, message: EventMessage, message_context):
         if str(message.event_content.user_interaction_type) != "0":
             await self._on_user_interact(message, message_context)
@@ -32,7 +32,7 @@ class UserInteractorAgent(Agent):
             logger.bind(log_tag="fairy_sys").info("[Interact With User] No user interaction required, skipped")
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: (msg.event == EventType.UserChat or msg.event == EventType.TaskFinish) and msg.status == EventStatus.DONE and type(msg.event_content) == UserInteractionInfo)
+              listen_filter=lambda msg: msg.event == EventType.UserChat_DONE)
     async def on_user_interact_reflect(self, message: EventMessage, message_context):
         await self._on_user_interact(message, message_context)
 
@@ -63,6 +63,7 @@ class UserInteractorAgent(Agent):
 
         interactor_event_content = await self.request_llm(
             self.build_init_prompt(instruction_memory.get_instruction(),
+                                   instruction_memory.ins_language,
                                    current_action_memory[ActionMemoryType.Plan],
                                    current_action_memory[ActionMemoryType.StartScreenPerception],
                                    key_info_memory,
@@ -72,16 +73,16 @@ class UserInteractorAgent(Agent):
         )
 
         if interactor_event_content.interaction_status == "A":
-            await self.publish("app_channel", EventMessage(EventType.UserInteraction, EventStatus.DONE, interactor_event_content))
+            await self.publish("app_channel", EventMessage(EventType.UserInteraction_DONE, interactor_event_content))
         elif interactor_event_content.interaction_status == "B":
-            await self.publish("app_channel", EventMessage(EventType.UserChat, EventStatus.CREATED, interactor_event_content))
-        elif interactor_event_content.interaction_status == "C":
-            await self.publish("app_channel", EventMessage(EventType.Task, EventStatus.CREATED, {
-                "instruction": interactor_event_content.action_instruction,
-                "thought": interactor_event_content.interaction_thought,
-                "task_name": "More Info Explore",
-                "source": "UserInteractorAgent"
-            }))
+            await self.publish("app_channel", EventMessage(EventType.UserChat_CREATED, interactor_event_content))
+        # elif interactor_event_content.interaction_status == "C":
+        #     await self.publish("app_channel", EventMessage(EventType.Task, EventStatus.CREATED, {
+        #         "instruction": interactor_event_content.action_instruction,
+        #         "thought": interactor_event_content.interaction_thought,
+        #         "task_name": "More Info Explore",
+        #         "source": "UserInteractorAgent"
+        #     }))
         logger.bind(log_tag="fairy_sys").info("[Interact With User] TASK completed.")
 
     @staticmethod
@@ -98,6 +99,7 @@ class UserInteractorAgent(Agent):
 
     def build_init_prompt(self,
                           instruction,
+                          ins_language,
                           plan_info: PlanInfo,
                           current_screen_perception_info: ScreenInfo,
                           key_infos: list,
@@ -144,22 +146,18 @@ class UserInteractorAgent(Agent):
         prompt += f"---\n"\
                   f"Please follow the steps below to perform the action:\n" \
                   f"1. Please check the 'Current User Prompt and Response' (if any) to determine the current status of the interaction with the user: \n"\
-                  f"Note: For Interaction Type 3, please check if further information needs to be collected for user decision making. Please ensure that the possible options have been fully investigated (where there are more than 10 options available, only 10 options are required). \n"\
                   f"- A: Interaction Target completed, the user has made a clear choice or has clarified the instruction and can end the user interaction; \n"\
                   f"- B: Interaction Target not completed, need to begin or continue interaction with user; \n"\
-                  f"- C: Interaction Target not completed, 'user requests for more options' OR 'user selects option not offered' OR 'need to gather more information to interact with the user' (optional for Interaction Type 3 only); \n"\
                   f"2. If the Interaction Status is A, summarize the history with the current user's response. \n"\
-                  f"3. If the Interaction Status is B, construct a prompt and interact with the user, carefully explaining what is needed from the user (to continue), ask the user to answer yes or no if confirmation is required; \n"\
-                  f"4. If the Interaction Status is C, carefully specify in the instructions what information needs to be collected in order for the user to make a decision; \n"\
+                  f"3. If the Interaction Status is B, construct a prompt and interact with the user (Please Use Language: {ins_language}), carefully explaining what is needed from the user (to continue), ask the user to answer yes or no if confirmation is required; \n"\
                   f"\n"
 
         prompt += f"---\n"\
-                  f"Please provide a JSON with 6 keys, which are interpreted as follows:\n"\
-                  f"- interaction_status: Please use A, B and C to indicate;\n" \
+                  f"Please provide a JSON with 4 keys, which are interpreted as follows:\n"\
+                  f"- interaction_status: Please use A, B to indicate;\n" \
                   f"- interaction_thought: Explain in detail your reasons for choosing the Interaction Status;\n" \
                   f"- response: If the Interaction Status is A, please fill in a summary of all responses; otherwise fill in 'None'.\n" \
-                  f"- user_prompt: If the Interaction Status is B, please fill in the prompt words that can help the user to make an answer or a choice (Includes available options), you shouldn't let the user perform any actions on their own, simply ask Yes or No when the user interaction type is 1 or 2; Otherwise, please fill in 'None'. IMPORTANT: Please use the language of the 'Instruction' and double-check that the options you provide are factually correct and in full compliance with the user instructions, irrelevant or fabricated options cannot be included.\n" \
-                  f"- action_instruction: If the Interaction Status is C, please fill in the instruction for a new Agent to collect information gathering, need to include information specifically to be collected and quantities; Otherwise, please fill in 'None'.\n" \
+                  f"- user_prompt: If the Interaction Status is B, please fill in the prompt words that can help the user to make an answer or a choice (Includes available options), you shouldn't let the user perform any actions on their own, simply ask Yes or No when the user interaction type is 1 or 2; Otherwise, please fill in 'None'. IMPORTANT: Please double-check to make sure that the options you've provided aren't based on faulty understanding of the page (e.g., confusion caused by not paying attention to the page structure or text correspondences) and your fictional imagery, and make sure that they're all factually correct.\n" \
                   f"Make sure this JSON can be loaded correctly by json.load().\n" \
                   f"\n"
         return prompt
@@ -169,9 +167,7 @@ class UserInteractorAgent(Agent):
             response = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL).group(1)
         response_jsonobject = json.loads(response)
 
-        if response_jsonobject['interaction_status'] == "C":
-            action_instruction = response_jsonobject['action_instruction']
-        elif response_jsonobject['interaction_status'] == "B":
+        if response_jsonobject['interaction_status'] == "B":
             action_instruction = response_jsonobject['user_prompt']
         else:
             action_instruction = None

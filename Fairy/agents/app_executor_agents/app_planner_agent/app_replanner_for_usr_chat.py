@@ -14,7 +14,7 @@ from Fairy.config.fairy_config import FairyConfig
 from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo, UserInteractionInfo
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, EventStatus, CallType
+from Fairy.type import EventType, CallType
 
 
 class AppRePlannerForUsrChatAgent(Agent):
@@ -28,7 +28,7 @@ class AppRePlannerForUsrChatAgent(Agent):
         self.non_visual_mode = config.non_visual_mode
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.UserInteraction and msg.status == EventStatus.DONE)
+              listen_filter=lambda msg: msg.event == EventType.UserInteraction_DONE)
     async def on_plan_after_user_interaction(self, message: EventMessage, message_context):
         logger.bind(log_tag="fairy_sys").info("[Plan(UserInteraction)] TASK in progress...")
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, StartScreenPerception)
@@ -57,7 +57,7 @@ class AppRePlannerForUsrChatAgent(Agent):
             ),
             images=images
         )
-        await self.publish("app_channel", EventMessage(EventType.Plan, EventStatus.DONE, plan_event_content))
+        await self.publish("app_channel", EventMessage(EventType.Plan_DONE, plan_event_content))
         logger.bind(log_tag="fairy_sys").info("[Plan(UserInteraction)] TASK completed.")
 
     def build_after_user_interaction_prompt(self,

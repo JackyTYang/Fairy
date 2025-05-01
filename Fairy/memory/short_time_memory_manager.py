@@ -4,18 +4,20 @@ from enum import Enum
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import Worker, listener
 from Fairy.config.fairy_config import FairyConfig
-from Fairy.info_entity import ActionInfo, ProgressInfo, UserInteractionInfo, InstructionInfo
+from Fairy.info_entity import ActionInfo, ProgressInfo
 from Fairy.message_entity import EventMessage, CallMessage
 from Fairy.tools.mobile_controller.action_type import AtomicActionType
-from Fairy.type import EventType, EventStatus, CallType
+from Fairy.type import EventType, CallType
 from loguru import logger
 import pickle
 
 class MemoryType(Enum):
-    Instruction = 0
-    Actions = 1
-    UserInteraction = 2
-    KeyInfo = 3
+    GlobalInstruction = 0
+    GlobalPlan = 1
+    Instruction = 2
+    Actions = 3
+    UserInteraction = 4
+    KeyInfo = 5
 
 
 class ActionMemoryType(Enum):
@@ -33,6 +35,7 @@ class ShortMemoryCallType(Enum):
     GET_Key_Info = 5
     GET_Current_User_Interaction = 6
     GET_Global_Plan_Info = 7
+    GET_Global_Instruction = 8
 
 class ShortTimeMemoryManager(Worker):
     def __init__(self, runtime, config:FairyConfig):
@@ -43,7 +46,10 @@ class ShortTimeMemoryManager(Worker):
         self.task_name = None
         self.current_memory = None
         self.current_memory_ready_event = None
-        self.global_plan_memory = []
+        self.global_memory = {
+            MemoryType.GlobalInstruction: None,
+            MemoryType.GlobalPlan: [],
+        }
 
         self.stm_restore_point_path = config.get_short_time_memory_restore_point_path()
 
@@ -55,14 +61,15 @@ class ShortTimeMemoryManager(Worker):
                     self.task_name,
                     self.current_memory,
                     self.current_memory_ready_event,
-                    self.global_plan_memory
+                    self.global_memory
                 )
+            # noinspection PyTypeChecker
             pickle.dump(short_time_memory, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     def load_restore_point(self, restore_point_name):
         with open(restore_point_name, "rb") as f:
             short_time_memory = pickle.load(f)
-        self.memory_list, self.task_name, self.current_memory, self.current_memory_ready_event, self.global_plan_memory = short_time_memory
+        self.memory_list, self.task_name, self.current_memory, self.current_memory_ready_event, self.global_memory = short_time_memory
 
     def new_memory(self, task_name=None):
         self.task_name = task_name
@@ -81,7 +88,7 @@ class ShortTimeMemoryManager(Worker):
             "task_name": self.task_name,
             "memory": self.current_memory,
             "memory_ready_event": self.current_memory_ready_event,
-            "global_plan_memory": self.global_plan_memory[-1],
+            "global_plan_memory": self.global_memory[MemoryType.GlobalPlan][-1],
         }) # 保存当前短时记忆
         # 新建一个短时记忆
         self.new_memory(task_name)
@@ -125,7 +132,7 @@ class ShortTimeMemoryManager(Worker):
         await self._set_current_action_memory(ActionMemoryType.StartScreenPerception, next_start_screen_perception)
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.Task and message.status == EventStatus.CREATED)
+              listen_filter=lambda message: message.event == EventType.Task_CREATED)
     async def create_task_memory(self, message: EventMessage, message_context):
         if len(self.memory_list) == 0 and self.current_memory is None:
             self.new_memory("Task 1") # 初始化短时记忆(Main Task)
@@ -144,7 +151,7 @@ class ShortTimeMemoryManager(Worker):
 
     # 当event为UserInteraction时，更新当前Instruction的记忆
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.UserInteraction and message.status == EventStatus.DONE)
+              listen_filter=lambda message: message.event == EventType.UserInteraction_DONE)
     async def update_instruction_memory(self, message: EventMessage, message_context):
         self.current_memory[MemoryType.Instruction].updated.append(message.event_content.response)
         # 构建本次的Action
@@ -159,7 +166,7 @@ class ShortTimeMemoryManager(Worker):
 
     # 当event为UserChat时，更新当前UserInteraction的记忆
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.UserChat and message.status == EventStatus.DONE)
+              listen_filter=lambda message: message.event == EventType.UserChat_DONE)
     async def update_current_user_interaction_memory(self, message: EventMessage, message_context):
         self.current_memory[MemoryType.UserInteraction][-1].append(message.event_content)
 
@@ -176,10 +183,10 @@ class ShortTimeMemoryManager(Worker):
 
 
     # 当event为Plan、ActionExecution、ScreenPerception、Reflection时，更新当前Action的记忆
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel", listen_filter=lambda message:(message.event == EventType.Plan or message.event == EventType.ActionExecution or message.event == EventType.ScreenPerception or message.event == EventType.Reflection) and message.status == EventStatus.DONE)
+    @listener(ListenerType.ON_NOTIFIED, channel="app_channel", listen_filter=lambda message:message.event == EventType.Plan_DONE or message.event == EventType.ActionExecution_DONE or message.event == EventType.ScreenPerception_DONE or message.event == EventType.Reflection_DONE)
     async def set_current_action_memory(self, message: EventMessage, message_context):
         match message.event:
-            case EventType.Plan:
+            case EventType.Plan_DONE:
                 # 如果是初始化模式，切换到非初始化模式
                 if self.current_memory["init_mode"]:
                     self.current_memory["init_mode"] = False
@@ -189,15 +196,15 @@ class ShortTimeMemoryManager(Worker):
                     # 如果当前Plan需要用户交互，则新增新的UserInteraction
                     self.current_memory[MemoryType.UserInteraction].append([])
                 await self._set_current_action_memory(ActionMemoryType.Plan, message.event_content)
-            case EventType.ActionExecution:
+            case EventType.ActionExecution_DONE:
                 await self._set_current_action_memory(ActionMemoryType.Action, message.event_content)
-            case EventType.ScreenPerception:
+            case EventType.ScreenPerception_DONE:
                 # 如果是初始化模式，屏幕感知应被设置为StartScreenPerception记忆
                 if self.current_memory["init_mode"]:
                     await self._set_current_action_memory(ActionMemoryType.StartScreenPerception, message.event_content)
                 else:
                     await self._set_current_action_memory(ActionMemoryType.EndScreenPerception, message.event_content)
-            case EventType.Reflection:
+            case EventType.Reflection_DONE:
                 await self._set_current_action_memory(ActionMemoryType.ActionResult, message.event_content)
 
     async def _set_current_action_memory(self, memory_type, memory):
@@ -206,7 +213,7 @@ class ShortTimeMemoryManager(Worker):
 
     # 当event为KeyInfoExtraction时，更新当前KeyInfo的记忆
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.KeyInfoExtraction and message.status == EventStatus.DONE)
+              listen_filter=lambda message: message.event == EventType.KeyInfoExtraction_DONE)
     async def update_key_info_memory(self, message: EventMessage, message_context):
         self.current_memory[MemoryType.KeyInfo].append(message.event_content)
 
@@ -217,9 +224,14 @@ class ShortTimeMemoryManager(Worker):
 
     # 当event为GlobalPlan时，更新当前GlobalPlan的记忆
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.GlobalPlan and message.status == EventStatus.DONE)
+              listen_filter=lambda message: message.event == EventType.GlobalPlan_DONE)
     async def update_global_plan_memory(self, message: EventMessage, message_context):
-        self.global_plan_memory.append(message.event_content)
+        self.global_memory[MemoryType.GlobalPlan].append(message.event_content)
+
+    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
+              listen_filter=lambda message: message.event == EventType.GlobalPlan_CREATED)
+    async def set_global_instruction_memory(self, message: EventMessage, message_context):
+        self.global_memory[MemoryType.GlobalInstruction].append(message.event_content["user_instruction"])
 
     @listener(ListenerType.ON_CALLED, listen_filter=lambda message: message.call_type == CallType.Memory_GET)
     async def get_memory(self, message: CallMessage, message_context):
@@ -240,7 +252,9 @@ class ShortTimeMemoryManager(Worker):
                 case ShortMemoryCallType.GET_Current_User_Interaction:
                     memory = self.current_memory.get(MemoryType.UserInteraction)[-1]
                 case ShortMemoryCallType.GET_Global_Plan_Info:
-                    memory = self.global_plan_memory[-1]
+                    memory = self.global_memory[MemoryType.GlobalPlan][-1]
+                case ShortMemoryCallType.GET_Global_Instruction:
+                    memory = self.global_memory[MemoryType.GlobalInstruction]
             memory_list[memory_call_type] = memory
         return memory_list
 

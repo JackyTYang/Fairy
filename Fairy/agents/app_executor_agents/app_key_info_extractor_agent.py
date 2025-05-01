@@ -11,7 +11,7 @@ from Fairy.config.fairy_config import FairyConfig
 from Fairy.info_entity import PlanInfo, ScreenInfo
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, EventStatus, CallType
+from Fairy.type import EventType, CallType
 
 
 class KeyInfoExtractorAgent(Agent):
@@ -24,7 +24,7 @@ class KeyInfoExtractorAgent(Agent):
 
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.Reflection and msg.status == EventStatus.DONE)
+              listen_filter=lambda msg: msg.event == EventType.Reflection_DONE)
     async def on_key_info_extract(self, message:EventMessage , message_context):
         logger.bind(log_tag="fairy_sys").debug("[Extract KeyInfo] TASK in progress...")
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, EndScreenPerception)\KeyInfo
@@ -61,7 +61,7 @@ class KeyInfoExtractorAgent(Agent):
         )
 
         # 发布Plan事件
-        await self.publish("app_channel", EventMessage(EventType.KeyInfoExtraction, EventStatus.DONE, key_info_extraction_event_content))
+        await self.publish("app_channel", EventMessage(EventType.KeyInfoExtraction_DONE, key_info_extraction_event_content))
         logger.bind(log_tag="fairy_sys").info("[Extract KeyInfo] TASK completed.")
 
     @staticmethod

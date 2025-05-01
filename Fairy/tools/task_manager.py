@@ -6,7 +6,7 @@ from Fairy.info_entity import UserInteractionInfo, GlobalPlanInfo, InstructionIn
 from Fairy.memory.short_time_memory_manager import MemoryType, ShortMemoryCallType
 from Fairy.message_entity import EventMessage, CallMessage
 from Fairy.tools.mobile_controller.action_type import AtomicActionType
-from Fairy.type import EventType, EventStatus, CallType
+from Fairy.type import EventType, CallType
 
 
 class TaskManager(Worker):
@@ -18,12 +18,12 @@ class TaskManager(Worker):
 
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.GlobalPlan and message.status == EventStatus.DONE)
+              listen_filter=lambda message: message.event == EventType.GlobalPlan_DONE)
     async def on_task_create(self, message: EventMessage, message_context):
         global_plan_info: GlobalPlanInfo = message.event_content
         self.current_task = global_plan_info.current_sub_task
         await self.start_or_switch_app()
-        await self.publish("app_channel", EventMessage(EventType.Task, EventStatus.CREATED,
+        await self.publish("app_channel", EventMessage(EventType.Task_CREATED,
             InstructionInfo(self.current_task['instruction'], global_plan_info.ins_language, self.current_task['key_info_request'])
         ))
 
@@ -38,7 +38,7 @@ class TaskManager(Worker):
         ))
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.TaskFinish and msg.status == EventStatus.CREATED)
+              listen_filter=lambda msg: msg.event == EventType.Task_DONE)
     async def on_task_finish(self, message: EventMessage, message_context):
         ...
 

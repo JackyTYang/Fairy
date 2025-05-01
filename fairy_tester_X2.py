@@ -9,7 +9,7 @@ from Fairy.config.fairy_config import FairyConfig
 from Fairy.message_entity import EventMessage
 from Fairy.tools.mobile_controller.action_executor import ActionExecutor
 from Fairy.tools.mobile_controller.app_info_manager import AppInfoManager
-from Fairy.type import EventType, EventStatus
+from Fairy.type import EventType
 
 ADB_PATH = "C:/Users/neosunjz/AppData/Local/Android/Sdk/platform-tools/adb.exe"
 
@@ -44,7 +44,7 @@ async def main():
     runtime.register(lambda: GlobalPlannerAgent(runtime, fairy._config))
     runtime.register(lambda: ActionExecutor(runtime, fairy._config))
 
-    await runtime.publish("app_channel", EventMessage(EventType.GlobalPlan, EventStatus.CREATED, {
+    await runtime.publish("app_channel", EventMessage(EventType.GlobalPlan_CREATED, {
         "user_instruction": "在地图上为我找附件的一家受欢迎的川菜馆。查看相关评价，并帮我总结到记事本里。最后帮我导航到这家餐厅"
     }))
     await runtime.stop()

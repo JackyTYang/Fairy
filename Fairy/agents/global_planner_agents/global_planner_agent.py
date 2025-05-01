@@ -12,7 +12,7 @@ from Fairy.agents.prompt_common import ordered_list, output_json_object
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.info_entity import GlobalPlanInfo
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, EventStatus, CallType
+from Fairy.type import EventType, CallType
 
 
 class GlobalPlannerAgent(Agent):
@@ -23,7 +23,7 @@ class GlobalPlannerAgent(Agent):
         super().__init__(runtime, "GlobalPlannerAgent", config.model_client, system_messages)
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.GlobalPlan and msg.status == EventStatus.CREATED)
+              listen_filter=lambda msg: msg.event == EventType.GlobalPlan_CREATED)
     async def on_global_plan(self, message:EventMessage , message_context):
         logger.bind(log_tag="fairy_sys").debug("[Global Plan] TASK in progress...")
         app_info_list = await (await self.call(
@@ -37,7 +37,7 @@ class GlobalPlannerAgent(Agent):
                 app_info_list
             )
         )
-        await self.publish("app_channel", EventMessage(EventType.GlobalPlan, EventStatus.DONE, global_plan))
+        await self.publish("app_channel", EventMessage(EventType.GlobalPlan_DONE, global_plan))
         logger.bind(log_tag="fairy_sys").info("[Global Plan] TASK completed.")
 
     @staticmethod

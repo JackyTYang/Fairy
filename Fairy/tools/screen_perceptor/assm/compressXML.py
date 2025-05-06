@@ -154,13 +154,16 @@ def compressxml(input_path, output_path, keep_system_nav=False):
     return compress_info
 
 
-def get_compress_xml(ui_hierarchy_xml, keep_system_nav=False):
+def get_compress_xml(ui_hierarchy_xml, keep_system_nav=False, perception_info_format=False):
     global compress_info
     compress_info.clear()
     root = ET.fromstring(ui_hierarchy_xml)
     merged = merge_single_child_nodes(root)
     process_node(merged, None, keep_system_nav)
-    return tostring_with_valueless_true(merged), compress_info
+    if perception_info_format:
+        return compress_info
+    else:
+        return tostring_with_valueless_true(merged)
 
 
 def parse_bounds(bounds_str):
@@ -198,5 +201,9 @@ def is_keyboard_active(ui_xml, height, imes=None):
 
 
 if __name__ == '__main__':
-    info = compressxml('window_dump-cleaned.xml', '../out')
-    print(info)
+    # info = compressxml('window_dump-cleaned.xml', '../out')
+    # print(info)
+    with open("../window_dump7.xml", "r", encoding="utf-8") as f:
+        content = f.read()  # 读取整个文件为字符串
+    xml = get_compress_xml(content)
+    print(xml)

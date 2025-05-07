@@ -13,20 +13,20 @@ from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
 from Fairy.memory.long_time_memory_manager import LongMemoryCallType
 from Fairy.memory.short_time_memory_manager import ActionMemoryType, ShortMemoryCallType
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventStatus, EventType, CallType
+from Fairy.type import EventType, CallType
 from Fairy.tools.mobile_controller.action_type import ATOMIC_ACTION_SIGNITURES, AtomicActionType
 
 
 class AppActionDeciderAgent(Agent):
     def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
-            content="You are a helpful AI assistant for operating mobile phones. Your goal is to choose the correct atomic actions to complete the user's instruction. Think as if you are a human user operating the phone.",
+            content="You are part of a helpful AI assistant for operating mobile phones and your identity is an action decider. Your goal is to choose the correct atomic actions to complete the user's instruction. Think as if you are a human user operating the phone.",
             type="SystemMessage")]
         super().__init__(runtime, " AppActionDeciderAgent", config.model_client, system_messages)
         self.non_visual_mode = config.non_visual_mode
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.Plan and msg.status == EventStatus.DONE)
+              listen_filter=lambda msg: msg.event == EventType.Plan_DONE)
     async def on_execute_plan(self, message: EventMessage, message_context):
 
         logger.bind(log_tag="fairy_sys").info("[Atomic Action Decision] TASK in progress...")
@@ -85,7 +85,8 @@ class AppActionDeciderAgent(Agent):
 
         event_content = await self.request_llm(
             self.build_prompt(
-                instruction_memory,
+                instruction_memory.get_instruction(),
+                instruction_memory.ins_language,
                 current_action_memory[ActionMemoryType.Plan],
                 current_action_memory[ActionMemoryType.StartScreenPerception],
                 historical_action_memory[ActionMemoryType.Action],
@@ -97,11 +98,12 @@ class AppActionDeciderAgent(Agent):
             images=images
         )
 
-        await self.publish("app_channel", EventMessage(EventType.ActionExecution, EventStatus.CREATED, event_content))
+        await self.publish("app_channel", EventMessage(EventType.ActionExecution_CREATED, event_content))
         logger.bind(log_tag="fairy_sys").info("[Atomic Action Decision] TASK completed.")
 
     @staticmethod
     def build_prompt(instruction,
+                     ins_language,
                      plan_info: PlanInfo,
                      current_screen_perception_info: ScreenInfo,
                      action_info_list: List[ActionInfo],
@@ -127,7 +129,7 @@ class AppActionDeciderAgent(Agent):
 
         prompt += "---\n"
         prompt += "Carefully examine all the information provided above and decide on the next action to perform. If you notice an unsolved error in the previous action, think as a human user and attempt to rectify them. You must choose your action from ONE or MORE of the atomic actions.\n"\
-                  "If there are multiple options and the user does not specify which one to choose in the Instruction, interaction with the user is necessary. You cannot make any choices on behalf of the user\n"\
+                  "If there are multiple options and the user does not specify which one to choose in the Instruction, interaction with the user is necessary. You cannot make any choices on behalf of the user.\n"\
                   "\n"
 
         prompt += "- Atomic Actions: \n"
@@ -137,7 +139,7 @@ class AppActionDeciderAgent(Agent):
             # if current_screen_perception_info.perception_infos.keyboard_status and action == AtomicActionType.Type:
             #     continue # Skip the Type action if the keyboard is not activated
             prompt += f"- {action}({', '.join(value['arguments'])}): {value['description']}\n"
-        prompt += f"IMPORTANT: When you input something (especially a search), please be careful to align it with the user's current language.\n" \
+        prompt += f"IMPORTANT: When you input something (especially a search), please be careful to use the language {ins_language}.\n" \
                   "\n"
         if not current_screen_perception_info.perception_infos.keyboard_status:
             prompt += "NOTE: Unable to input. The keyboard has not been activated. To input, please activate the keyboard by tapping on an input box, which includes tapping on an input box first.\n"\

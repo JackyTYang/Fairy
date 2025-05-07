@@ -27,7 +27,7 @@ class Agent(Worker):
             for r in responses:
                 logger.bind(log_tag="agent_req&res").info(f"[Response]\n{str(r)}")
         else:
-            logger.info("LLM Response: " + str(responses))
+            logger.bind(log_tag="agent_req&res").info("Response]" + str(responses))
         return responses
 
     def parse_response(self, content: str):

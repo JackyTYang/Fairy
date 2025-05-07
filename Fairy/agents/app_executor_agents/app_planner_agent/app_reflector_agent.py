@@ -14,13 +14,13 @@ from Fairy.config.fairy_config import FairyConfig
 from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, EventStatus, CallType
+from Fairy.type import EventType, CallType
 
 
 class AppReflectorAgent(Agent):
     def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
-            content="You are a helpful AI assistant for operating mobile phones. Your goal is to verify whether the last action produced the expected behavior, to keep track of the progress.",
+            content="You are part of a helpful AI assistant for operating mobile phones and your identity is a reflector. Your goal is to verify whether the last action produced the expected behavior, to keep track of the progress.",
             type="SystemMessage")]
         super().__init__(runtime, "AppReflectorAgent", config.model_client, system_messages)
 
@@ -28,7 +28,7 @@ class AppReflectorAgent(Agent):
         self.standalone_reflector_mode = config.reflection_policy == "standalone"
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.ScreenPerception and msg.status == EventStatus.DONE)
+              listen_filter=lambda msg: msg.event == EventType.ScreenPerception_DONE)
     async def on_reflect(self, message: EventMessage, message_context):
         memory = await (await self.call("ShortTimeMemoryManager",
             CallMessage(CallType.Memory_GET, {
@@ -71,7 +71,7 @@ class AppReflectorAgent(Agent):
 
         reflection_event_content = await self.request_llm(
             self.build_prompt(
-                instruction_memory,
+                instruction_memory.get_instruction(),
                 current_action_memory[ActionMemoryType.Plan],
                 current_action_memory[ActionMemoryType.Action],
                 current_action_memory[ActionMemoryType.StartScreenPerception],
@@ -82,10 +82,10 @@ class AppReflectorAgent(Agent):
         )
 
         # 发布Reflection事件
-        await self.publish("app_channel", EventMessage(EventType.Reflection, EventStatus.DONE, reflection_event_content))
+        await self.publish("app_channel", EventMessage(EventType.Reflection_DONE, reflection_event_content))
 
         if is_finished_action(reflection_event_content, current_action_memory[ActionMemoryType.Action]):
-            await self.publish("app_channel", EventMessage(EventType.TaskFinish, EventStatus.CREATED))
+            await self.publish("app_channel", EventMessage(EventType.Task_DONE))
 
         logger.bind(log_tag="fairy_sys").info("[Action Reflection] TASK completed.")
 

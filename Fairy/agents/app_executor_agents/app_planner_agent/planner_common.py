@@ -1,4 +1,4 @@
-from Fairy.info_entity import ProgressInfo, ActionInfo
+from Fairy.info_entity import ScreenInfo
 
 user_interaction_situation=[
     "1: The current sub-goal is sensitive or dangerous action and the user has not confirmed it in the 'Instruction'. E.g., file deletion when the user has not instructed file deletion.",
@@ -13,7 +13,8 @@ replan_steps = [
     "If the 'action result' is C or D, then: think step-by-step about whether the 'Overall Plan' needs to be revised to address the error; determine the next 'Sub-goal' to be executed based on the plan.",
     "Due to the lack of knowledge you may have when you first plan, please review and update (if necessary) your 'Overall Plan' based on the main features and content of the current screen.",
     "In the following cases where user interaction is required, determine whether user interaction is required next, and select 0 if no user interaction is required:",
-    user_interaction_situation
+    user_interaction_situation,
+    "If user interaction is required, the overall plan must be updated to add sub-goals related to user interaction, as well as clarifying the sub-goals that should be accomplished after the interaction."
 ]
 
 replan_steps_for_usr_chat = [
@@ -37,7 +38,7 @@ plan_output = [
 
 replan_output = [
     "plan_thought: Your rationale for developing or modifying the plan and sub-goals.",
-    "overall_plan: All plans for completion of 'user instruction'. Check to see if any key steps have been missed. The plan consists of ONE or MORE sub-goals, export it as a list. If you need to update the plan, provide the updated plan here. Otherwise keep the current plan and copy it here.",
+    "overall_plan: All plans for completion of 'user instruction'. Check to see if any key steps have been missed. The plan consists of ONE or MORE sub-goals, export it as a list. If you need to update the plan, provide the updated plan here. Otherwise keep the current plan and copy it here. If user interaction is required, the overall plan must be updated.",
     "current_sub_goal: The sub-goal you should work on. If the current one is complete, pick the next one, otherwise keep it. If all subgoals have been completed, write 'Finished'.",
     "user_interaction_type: Please use 0, 1, 2, 3, and 4 to indicate.",
     "user_interaction_thought: Explain in detail the reason for your choice (explain one by one why it is not 1~4). If your choice is not 0, please add the information you want to get from interacting with users."
@@ -54,21 +55,24 @@ replan_output_for_usr_chat = [
 def plan_tips(tips):
     prompt = f"---\n" \
              f"Here's some TIPS for thinking about the plan. These TIPS are VERY IMPORTANT, so MAKE SURE you follow them to the letter: \n" \
+             f"IMPORTANT: Your partners include 'ActionDecider', 'UserInteractor' and 'KeyInformationExtractor'. If you set 'user_interaction_type' to 0, it will be left to the 'ActionDecider' to execute your current_sub_goal, otherwise it will be left to the 'UserInteractor' to interact with the user. The 'KeyInformationExtractor' will automatically extract and organize information after a change in screen information without any separate command from you. \n"\
              f"{tips}\n" \
              f"\n"
     return prompt
 
-def screen(current_screen_perception_info, non_visual_mode):
+def screen(current_screen_info: ScreenInfo, non_visual_mode):
+
     if not non_visual_mode:
-        screenshot_prompt = "The attached image is a screenshots of your phone to show the current state"
+        screenshot_prompt = "The attached image is a screenshots of your phone to show the current state."
     else:
-        screenshot_prompt = "The following text description (e.g. JSON or XML) is converted from a screenshots of your phone to show the current state"
+        screenshot_prompt = "The following text description (e.g. JSON or XML) is converted from a screenshots of your phone to show the current state."
 
     prompt = f"---\n"
-    prompt += current_screen_perception_info.perception_infos.get_screen_info_note_prompt(screenshot_prompt)  # Call this function to supplement the prompt "Size of the Image and Additional Information".
+    prompt += current_screen_info.perception_infos.get_screen_info_note_prompt(screenshot_prompt)  # Call this function to supplement the prompt "Size of the Image and Additional Information".
     prompt += f"\n"
 
-    prompt += current_screen_perception_info.perception_infos.get_screen_info_prompt()  # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
+    prompt += f"- Current Page: {current_screen_info.current_activity_info.activity}\n"
+    prompt += current_screen_info.perception_infos.get_screen_info_prompt()  # Call this function to get the content of the prompt "Screen Perception Information and Keyboard Status".
 
     prompt += f"Please scrutinize the above screen information to infer the type of the current page (e.g., home page, search page, results page, details page, etc.) and thus the main function of the page. This helps you to avoid wrong plans." \
           f"\n"

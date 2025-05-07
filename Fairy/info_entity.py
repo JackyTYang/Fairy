@@ -34,15 +34,24 @@ class ScreenFileInfo:
             self.file_type = 'jpeg'
             img.save(self.get_screenshot_fullpath(), 'JPEG', quality=quality)
 
+class ActivityInfo:
+    def __init__(self, package_name, activity, user_id, window_id):
+        self.package_name = package_name
+        self.activity = activity
+        self.user_id = user_id
+        self.window_id = window_id
 
 class ScreenInfo:
-    def __init__(self, screenshot_file_info: ScreenFileInfo, perception_infos):
+    def __init__(self, screenshot_file_info: ScreenFileInfo, perception_infos, current_activity_info: ActivityInfo):
+        self.current_activity_info = current_activity_info
         self.screenshot_file_info = screenshot_file_info
         self.perception_infos = perception_infos
 
     def __str__(self):
         return (f"\n -------------ScreenInfo-------------"
-                f"\n{self.perception_infos}"
+                f"\n - Package Name: {self.current_activity_info.package_name}"
+                f"\n - Activity: {self.current_activity_info.activity}"
+                f"\n - Perception Info: {self.perception_infos}"
                 f"\n -----------ScreenInfo END-----------")
 
 class PlanInfo:
@@ -63,16 +72,22 @@ class PlanInfo:
                 f"\n -----------PlanInfo END-----------")
 
 class GlobalPlanInfo:
-    def __init__(self, global_plan_thought, global_plan, ins_language):
+    def __init__(self, global_plan_thought, global_plan, current_sub_task, ins_language, delivered_key_info=None, previously_execution_result=None):
         self.global_plan_thought = global_plan_thought
         self.global_plan = global_plan
+        self.current_sub_task = current_sub_task
         self.ins_language = ins_language
+        self.delivered_key_info = delivered_key_info
+        self.previously_execution_result = previously_execution_result
 
     def __str__(self):
         return (f"\n -------------GlobalPlanInfo-------------"
+                f"\n - Previously Execution Result:{'No Previously Execution' if self.previously_execution_result is None else self.previously_execution_result}"
                 f"\n - Global Plan Thought:{self.global_plan_thought}"
                 f"\n - Global Plan: {self.global_plan}"
+                f"\n - Current Sub Task: {self.current_sub_task}"
                 f"\n - Ins Language: {self.ins_language}"
+                f"\n - Delivered Key Info: {self.delivered_key_info}"
                 f"\n -----------GlobalPlanInfo END-----------")
 
 class ActionInfo:
@@ -117,3 +132,21 @@ class UserInteractionInfo:
                 f"\n - Action Instruction: {self.action_instruction}"
                 f"\n - Response: {self.response}"
                 f"\n -----------UserInteractionInfo END-----------")
+
+class InstructionInfo:
+    def __init__(self, ori, language, key_info_request):
+        self.ori = ori
+        self.language = language
+        self.key_info_request = key_info_request
+        self.updated = []
+
+    def __str__(self):
+        return (f"\n -------------InstructionInfo-------------"
+                f"\n - Original Instruction : {self.ori}"
+                f"\n - Instruction Language: {self.language}"
+                f"\n - Key Info Request: {self.key_info_request}"
+                f"\n - User Update Instructions: {self.updated}"
+                f"\n -----------InstructionInfo END-----------")
+
+    def get_instruction(self):
+        return (self.ori + (f" | Instructions added after user interaction: {','.join(self.updated)}" if len(self.updated) > 0 else "")) if self.ori is not None else None

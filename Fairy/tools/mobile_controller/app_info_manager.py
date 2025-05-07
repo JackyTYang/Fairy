@@ -121,6 +121,7 @@ class AppInfoManager(Agent):
 
     def save_app_info_list(self):
         with open(self.user_mobile_record_path, 'w', encoding='utf-8') as f:
+            # noinspection PyTypeChecker
             json.dump(self.app_info_list, f, ensure_ascii=False, indent=4)
 
     @staticmethod

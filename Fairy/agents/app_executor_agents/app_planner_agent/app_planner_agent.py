@@ -14,19 +14,19 @@ from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo
 from Fairy.memory.long_time_memory_manager import LongMemoryCallType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, EventStatus, CallType
+from Fairy.type import EventType, CallType
 
 
 class AppPlannerAgent(Agent):
     def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
-            content="You are a helpful AI assistant for operating mobile phones. Your goal is to devise high-level plans to achieve the user's requests. Think as if you are a human user operating the phone, but if you are faced with uncertain options, you should actively interact with users.",
+            content="You are part of a helpful AI assistant for operating mobile phones and your identity is a planner. Your goal is to devise high-level plans to achieve the user's requests. Think as if you are a human user operating the phone, but if you are faced with uncertain options, you should actively interact with users.",
             type="SystemMessage")]
         super().__init__(runtime, "AppPlannerAgent", config.model_client, system_messages)
         self.non_visual_mode = config.non_visual_mode
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.ScreenPerception and msg.status == EventStatus.DONE)
+              listen_filter=lambda msg: msg.event == EventType.ScreenPerception_DONE)
     async def on_plan(self, message: EventMessage, message_context):
         memory = await (await self.call("ShortTimeMemoryManager",
             CallMessage(CallType.Memory_GET, {
@@ -66,14 +66,14 @@ class AppPlannerAgent(Agent):
 
         plan_event_content = await self.request_llm(
             self.build_init_prompt(
-                instruction_memory,
+                instruction_memory.get_instruction(),
                 current_action_memory[ActionMemoryType.StartScreenPerception],
                 tips
             ),
             images=images
         )
         # 发布Plan事件
-        await self.publish("app_channel", EventMessage(EventType.Plan, EventStatus.DONE, plan_event_content))
+        await self.publish("app_channel", EventMessage(EventType.Plan_DONE, plan_event_content))
         logger.bind(log_tag="fairy_sys").info("[Plan(INIT)] TASK completed.")
 
 

@@ -1,5 +1,6 @@
 
 def output_json_object(json_object_keys):
+
     prompt = f"---\n" \
              f"Please provide a JSON with {len(json_object_keys)} keys, which are interpreted as follows:\n"
     prompt += unordered_list(json_object_keys)

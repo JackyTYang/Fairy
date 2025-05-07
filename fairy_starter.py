@@ -43,7 +43,8 @@ async def main():
                           reflection_policy='standalone')
     fairy = FairyCore(_config)
     ## await fairy.start("Please help me to delete all flower related images in the album and clear the recycle bin")
-    await fairy.start("请帮我在美团外卖App上点一个‘肯德基’的汉堡，当前的应用是就是美团外卖App")
+    # await fairy.start("请帮我在美团外卖App上点一个‘肯德基’的汉堡，当前的应用是就是美团外卖App")
+    await fairy.start("在地图上帮我找几家附近的受欢迎的川菜馆。在点评上分别查看这些餐厅的评价，帮我总结到记事本里。最后帮我导航到我选择的餐厅。")
 
 if __name__ == '__main__':
     asyncio.run(main())

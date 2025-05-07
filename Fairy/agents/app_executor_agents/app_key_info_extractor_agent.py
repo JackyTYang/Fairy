@@ -11,20 +11,20 @@ from Fairy.config.fairy_config import FairyConfig
 from Fairy.info_entity import PlanInfo, ScreenInfo
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, EventStatus, CallType
+from Fairy.type import EventType, CallType
 
 
 class KeyInfoExtractorAgent(Agent):
     def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
-            content="You are a helpful AI assistant for operating mobile phones. Your goal is to take notes of important content relevant to the user's request.",
+            content="You are part of a helpful AI assistant for operating mobile phones and your identity is a key information extractor. Your goal is to take notes of important content relevant to the user's request.",
             type="SystemMessage")]
         super().__init__(runtime, "KeyInfoExtractorAgent", config.model_client, system_messages)
         self.non_visual_mode = config.non_visual_mode
 
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.Reflection and msg.status == EventStatus.DONE)
+              listen_filter=lambda msg: msg.event == EventType.Reflection_DONE)
     async def on_key_info_extract(self, message:EventMessage , message_context):
         logger.bind(log_tag="fairy_sys").debug("[Extract KeyInfo] TASK in progress...")
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, EndScreenPerception)\KeyInfo
@@ -50,7 +50,8 @@ class KeyInfoExtractorAgent(Agent):
 
         key_info_extraction_event_content = await self.request_llm(
             self.build_prompt(
-                instruction_memory,
+                instruction_memory.get_instruction(),
+                instruction_memory.key_info_request,
                 current_action_memory[ActionMemoryType.Plan],
                 current_action_memory[ActionMemoryType.EndScreenPerception],
                 key_info_memory,
@@ -60,11 +61,12 @@ class KeyInfoExtractorAgent(Agent):
         )
 
         # 发布Plan事件
-        await self.publish("app_channel", EventMessage(EventType.KeyInfoExtraction, EventStatus.DONE, key_info_extraction_event_content))
+        await self.publish("app_channel", EventMessage(EventType.KeyInfoExtraction_DONE, key_info_extraction_event_content))
         logger.bind(log_tag="fairy_sys").info("[Extract KeyInfo] TASK completed.")
 
     @staticmethod
     def build_prompt(instruction,
+                     ins_key_info_request,
                      plan_info: PlanInfo,
                      current_screen_perception_info: ScreenInfo,
                      key_infos: list,
@@ -75,6 +77,11 @@ class KeyInfoExtractorAgent(Agent):
         prompt += f"- Instruction: {instruction}\n"\
                   f"- Overall Plan: {plan_info.overall_plan}\n" \
                   f"- Sub-goal: {plan_info.current_sub_goal}\n" \
+                  f"\n"
+
+        prompt = f"---\n"\
+                 f"This is a requirement that you should always focus on and extract key information: {ins_key_info_request}\n"\
+                 f"\n"
 
         prompt += f"---\n"
         prompt += current_screen_perception_info.perception_infos.get_screen_info_note_prompt(screenshot_prompt) # Call this function to supplement the prompt "Size of the Image and Additional Information".
@@ -84,9 +91,11 @@ class KeyInfoExtractorAgent(Agent):
 
         prompt += f"---\n"\
                   f"- Key Information Record (Previously): {key_infos}\n" \
-                  f"Please follow the steps below to perform the action:\n"\
+                  f"\n"\
+
+        prompt += f"Please follow the steps below to perform the action:\n"\
                   "1. Please scrutinize the above information and extract any 'Key Information' that you think may be relevant to the execution of the instruction, the current sub-goal, or a future plan. This 'Key Information'  will be made available to Planner Agent and Executor Agent for their reference in the future. \n"\
-                  "IMPORTANT: DO NOT duplicate any information that already exists in the Instruction, Overall Plan, Sub-goals. DO NOT record low-level actions, e.g., screen coordinates, temporary warning notices, etc.\n"\
+                  "IMPORTANT: DO NOT record any information that already exists in the Instruction, Overall Plan, Sub-goals. DO NOT record low-level actions, e.g., screen coordinates, temporary warning notices, etc.\n"\
                   "IMPORTANT: If there really is no key information worth recording or updating, please just output the previous 'Key Information' and skip the subsequent steps. \n" \
                   "For example, for a search task, the result information displayed after the search is the 'Key Information'.\n"\
                   "2. Please use JSON to format the relevant 'Key Information': think step-by-step to summarize the keys of the JSON, and split the key information to fill in the values of the JSON. \n"\

@@ -53,7 +53,7 @@ class GlobalRePlannerAgent(Agent):
         app_key_info_memory = short_memory[ShortMemoryCallType.GET_Key_Info]
 
         global_plan = await self.request_llm(
-            self.build_prompt(
+            self.build_prompt_for_global_plan(
                 user_instruction,
                 app_info_list,
                 global_plan_info,
@@ -65,11 +65,32 @@ class GlobalRePlannerAgent(Agent):
             )
         )
 
+        global_plan.current_sub_task['instruction'] = await self.request_llm(
+            self.build_prompt_for_subtask_instruction_extension(
+                global_plan.delivered_key_info,
+                global_plan.current_sub_task['instruction']
+            ),
+            parse_response_func=lambda response: response
+        )
+
         await self.publish("app_channel", EventMessage(EventType.GlobalPlan_DONE, global_plan))
         logger.bind(log_tag="fairy_sys").info("[Global RePlan] TASK completed.")
 
+
     @staticmethod
-    def build_prompt(user_instruction:str,
+    def build_prompt_for_subtask_instruction_extension(delivered_key_info, instruction):
+        prompt = f"---\n"\
+                 f"- Key Information: {delivered_key_info}\n" \
+                 f"- Instruction: {instruction}\n" \
+                 f"\n"
+
+        prompt += f"Please complete the 'Instruction' according to the 'Key Information'. Non-critical information can be omitted to ensure that critical information is not lost. Output the complementary Instruction directly, without including the thought process or other content."
+
+        return prompt
+
+
+    @staticmethod
+    def build_prompt_for_global_plan(user_instruction:str,
                      app_info_list: dict,
                      global_plan_info: GlobalPlanInfo,
                      app_instruction: InstructionInfo,
@@ -123,9 +144,11 @@ class GlobalRePlannerAgent(Agent):
 
         prompt += output_json_object(
             [
-                "- execution_result: The result of the execution of the previous subtask. Please indicate whether the expectations have been met.",
-                "- delivered_key_info: The key information that needs to be delivered to the next sub-tasks."
-            ] + plan_output)
+                "execution_result: The result of the execution of the previous subtask. Please indicate whether the expectations have been met.",
+                "delivered_key_info: The key information that needs to be delivered to the next sub-tasks."
+            ] + plan_output + [
+                    "current_sub_task: The sub-task you should work on, selected from the 'global_plan'. If the current one is complete, pick the next one, otherwise keep it. If all sub-task in 'global_plan' have been completed, write 'Finished'."
+            ])
 
         return prompt
 

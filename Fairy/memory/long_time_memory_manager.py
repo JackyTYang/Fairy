@@ -78,16 +78,16 @@ class LongTimeMemoryManager(Worker):
         map = {
             LongMemoryCallType.GET_Plan_Tips: {
                 "file_name": "plan_tips.txt",
-                "query": lambda text: f"The user instruction is '{text}', please find all relevant tips, then output the results line by line."
+                "query": lambda text: f"The user instruction is '{text}', please find all relevant tips (Including related tasks), then output a numbered list."
             },
             LongMemoryCallType.GET_Execution_Tips:{
                 "file_name": "execution_tips.txt",
-                "query": lambda text: f"The current subgoal is '{text}', please find all relevant tips, then output the results line by line."
+                "query": lambda text: f"The current sub-goal is '{text}', please find all relevant tips, then output a numbered list."
             },
             LongMemoryCallType.GET_Execution_ERROR_Tips: {
                 "file_name": "execution_error_tips.txt",
                 "query": lambda
-                    text: f"Just encountered an error, the error message is '{text}', please all the relevant tips, then output the results line by line."
+                    text: f"Just encountered an error, the error message is '{text}', please all the relevant tips, then output line by line."
             }
         }
         filters = MetadataFilters(

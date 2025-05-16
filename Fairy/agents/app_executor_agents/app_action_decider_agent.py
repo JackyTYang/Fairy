@@ -32,7 +32,6 @@ class AppActionDeciderAgent(Agent):
         logger.bind(log_tag="fairy_sys").info("[Atomic Action Decision] TASK in progress...")
 
         # 如果当前Plan需要用户交互，则跳过
-        print(message.event_content.user_interaction_type)
         if str(message.event_content.user_interaction_type) != "0":
             logger.bind(log_tag="fairy_sys").info("[Atomic Action Decision] User interaction required, skipped")
             return
@@ -86,7 +85,7 @@ class AppActionDeciderAgent(Agent):
         event_content = await self.request_llm(
             self.build_prompt(
                 instruction_memory.get_instruction(),
-                instruction_memory.ins_language,
+                instruction_memory.language,
                 current_action_memory[ActionMemoryType.Plan],
                 current_action_memory[ActionMemoryType.StartScreenPerception],
                 historical_action_memory[ActionMemoryType.Action],

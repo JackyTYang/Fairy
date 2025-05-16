@@ -11,9 +11,10 @@ from Citlali.models.entity import ChatMessage
 from Fairy.agents.app_executor_agents.app_planner_agent.reflector_common import old_and_new_screen_comparison, reflection_steps, \
     reflection_output, is_finished_action
 
-from Fairy.agents.app_executor_agents.app_planner_agent.planner_common import replan_output, plan_tips, plan_steps
+from Fairy.agents.app_executor_agents.app_planner_agent.planner_common import replan_output, plan_tips, plan_steps, \
+    plan_requirements
 from Fairy.agents.app_executor_agents.app_planner_agent.planner_common import screen, replan_steps
-from Fairy.agents.prompt_common import ordered_list, output_json_object
+from Fairy.agents.prompt_common import ordered_list, output_json_object, unordered_list
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
 from Fairy.memory.long_time_memory_manager import LongMemoryCallType
@@ -25,7 +26,7 @@ from Fairy.type import EventType, CallType
 class AppRePlannerForActExecAgent(Agent):
     def __init__(self, runtime, config: FairyConfig) -> None:
         system_messages = [ChatMessage(
-            content="You are part of a helpful AI assistant for operating mobile phones and your identity is a planner. Your goal is to verify whether the last action produced the expected behavior, to keep track of the progress and devise high-level plans to achieve the user's requests. Think as if you are a human user operating the phone, but if you are faced with uncertain options, you should actively interact with users.",
+            content="You are part of a helpful AI assistant for operating mobile phones and your identity is a planner. Your step is to verify whether the last action produced the expected behavior, to keep track of the progress and devise high-level plans to achieve the user's requests. Think as if you are a human user operating the phone, but if you are faced with uncertain options, you should actively interact with users.",
             type="SystemMessage")]
         super().__init__(runtime, "AppRePlannerForActExecAgent", config.model_client, system_messages)
 
@@ -192,7 +193,11 @@ class AppRePlannerForActExecAgent(Agent):
         prompt += f"---\n"\
                   f"Please follow the steps below to revise the plan if you need:\n"
         prompt += ordered_list(plan_steps)
+        prompt += "IMPORTANT: If you are attempting to change a plan, make sure the completed plan (prior to the current_sub_goal) is retained. You can only change plans that have not yet been completed.\n"
         prompt += "\n"
+
+        prompt += "Here's some REQUIREMENTS for developing the plan. These REQUIREMENTS are VERY IMPORTANT, so MAKE SURE you follow them to the letter:\n"
+        prompt += unordered_list(plan_requirements)
 
         prompt += plan_tips(tips)
 

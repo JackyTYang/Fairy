@@ -82,7 +82,7 @@ class GlobalPlanInfo:
 
     def __str__(self):
         return (f"\n -------------GlobalPlanInfo-------------"
-                f"\n - Previously Execution Result:{'No Previously Execution' if self.previously_execution_result is None else self.previously_execution_result}"
+                f"\n - Previous Execution Result:{'No Previous Execution' if self.previously_execution_result is None else self.previously_execution_result}"
                 f"\n - Global Plan Thought:{self.global_plan_thought}"
                 f"\n - Global Plan: {self.global_plan}"
                 f"\n - Current Sub Task: {self.current_sub_task}"

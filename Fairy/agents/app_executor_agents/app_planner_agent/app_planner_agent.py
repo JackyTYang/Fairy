@@ -7,8 +7,9 @@ from Citlali.core.agent import Agent
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
-from Fairy.agents.app_executor_agents.app_planner_agent.planner_common import screen, plan_tips, plan_steps, plan_output
-from Fairy.agents.prompt_common import ordered_list, output_json_object
+from Fairy.agents.app_executor_agents.app_planner_agent.planner_common import screen, plan_tips, plan_steps, \
+    replan_output, plan_requirements
+from Fairy.agents.prompt_common import ordered_list, output_json_object, unordered_list
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo
 from Fairy.memory.long_time_memory_manager import LongMemoryCallType
@@ -89,9 +90,12 @@ class AppPlannerAgent(Agent):
         prompt += ordered_list(plan_steps)
         prompt += "\n"
 
+        prompt += "Here's some REQUIREMENTS for developing the plan. These REQUIREMENTS are VERY IMPORTANT, so MAKE SURE you follow them to the letter:\n"
+        prompt += unordered_list(plan_requirements)
+
         prompt += plan_tips(tips)
 
-        prompt += output_json_object(plan_output)
+        prompt += output_json_object(replan_output)
         return prompt
 
 

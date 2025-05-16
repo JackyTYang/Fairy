@@ -60,7 +60,9 @@ class GlobalPlannerAgent(Agent):
                   f"NOTE: If there are proprietary applications, do not consider generic applications. For example, if a user wishes to order a Starbucks, a takeaway app should not be considered if a Starbucks app exists. Make sure you consider a mini-program ONLY when there is no other way.\n" \
                   f"\n"
 
-        prompt += output_json_object(plan_output)
+        prompt += output_json_object(plan_output + [
+                    "current_sub_task: The sub-task you should work on, selected from the 'global_plan'."
+            ])
 
         return prompt
 

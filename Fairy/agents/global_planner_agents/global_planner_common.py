@@ -17,7 +17,6 @@ plan_output = [
     "a. app_package_name: The name of the package of the app that performs the current task (Must be consistent with what is provided in the list); \n"
     "b. instruction: The instruction of the app that performs the current task (a description of what the application needs to accomplish, be careful not to include any specific steps, it needs to be very high level; DO NOT include OPEN / SWITCH specific app in the instruction; For this key only, the language used should be the same as 'ins_language' ); \n"
     f"c. key_info_request: A description of the key information to be obtained. Fill in 'None' if there is no need for any information from this task.",
-    "current_sub_task: The sub-task you should work on, selected from the 'global_plan'. If the current one is complete, pick the next one, otherwise keep it. If all sub-task in 'global_plan' have been completed, write 'Finished'."
 ]
 
 

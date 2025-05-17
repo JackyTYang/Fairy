@@ -63,7 +63,7 @@ class UserInteractorAgent(Agent):
 
         interactor_event_content = await self.request_llm(
             self.build_init_prompt(instruction_memory.get_instruction(),
-                                   instruction_memory.ins_language,
+                                   instruction_memory.language,
                                    current_action_memory[ActionMemoryType.Plan],
                                    current_action_memory[ActionMemoryType.StartScreenPerception],
                                    key_info_memory,
@@ -156,7 +156,7 @@ class UserInteractorAgent(Agent):
                   f"Please provide a JSON with 4 keys, which are interpreted as follows:\n"\
                   f"- interaction_status: Please use A, B to indicate;\n" \
                   f"- interaction_thought: Explain in detail your reasons for choosing the Interaction Status;\n" \
-                  f"- response: If the Interaction Status is A, please fill in a summary of all responses; otherwise fill in 'None'.\n" \
+                  f"- response: If the Interaction Status is A, please fill in a summary of all 'User Responses' (Do NOT include other content); otherwise fill in 'None'.\n" \
                   f"- user_prompt: If the Interaction Status is B, please fill in the prompt words that can help the user to make an answer or a choice (Includes available options), you shouldn't let the user perform any actions on their own, simply ask Yes or No when the user interaction type is 1 or 2; Otherwise, please fill in 'None'. IMPORTANT: Please double-check to make sure that the options you've provided aren't based on faulty understanding of the page (e.g., confusion caused by not paying attention to the page structure or text correspondences) and your fictional imagery, and make sure that they're all factually correct.\n" \
                   f"Make sure this JSON can be loaded correctly by json.load().\n" \
                   f"\n"

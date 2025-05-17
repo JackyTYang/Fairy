@@ -55,7 +55,7 @@ class ShortTimeMemoryManager(Worker):
 
     def build_restore_point(self):
         current_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
-        with open(f"{self.stm_restore_point_path} + short_time_memory_backup_{current_time}.pkl", "wb") as f:
+        with open(f"{self.stm_restore_point_path}/short_time_memory_backup_{current_time}.pkl", "wb") as f:
             short_time_memory = (
                     self.memory_list,
                     self.task_name,
@@ -231,7 +231,7 @@ class ShortTimeMemoryManager(Worker):
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
               listen_filter=lambda message: message.event == EventType.GlobalPlan_CREATED)
     async def set_global_instruction_memory(self, message: EventMessage, message_context):
-        self.global_memory[MemoryType.GlobalInstruction].append(message.event_content["user_instruction"])
+        self.global_memory[MemoryType.GlobalInstruction] = message.event_content["user_instruction"]
 
     @listener(ListenerType.ON_CALLED, listen_filter=lambda message: message.call_type == CallType.Memory_GET)
     async def get_memory(self, message: CallMessage, message_context):

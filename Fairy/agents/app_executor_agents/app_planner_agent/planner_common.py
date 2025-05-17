@@ -20,26 +20,35 @@ replan_steps = [
 replan_steps_for_usr_chat = [
     "In the following cases where user interaction is required, determine whether user interaction is required next, and select 0 if no user interaction is required:",
     user_interaction_situation,
-    "If user interaction is no longer required, think about whether the overall plan, sub-goals that were planned to be executed prior to the interaction need to be changed. \n NOTE that you have just interacted with the user and have not yet actually executed the user's new instructions, in which case you should not change the current subgoal or it will result in skipped execution. (e.g. If the task is to make a selection  and the user has already selected an option, this task is NOT completed! Because the user's decision has not yet been processed by the executor Agent!)"
+    "If user interaction is no longer required, think about whether the overall plan, sub-goals that were planned to be executed prior to the interaction need to be changed. \n NOTE that you have just interacted with the user and have not yet actually executed the user's new instructions, in which case you should not change the current sub-goal or it will result in skipped execution. (e.g. If the task is to make a selection  and the user has already selected an option, this task is NOT completed! Because the user's decision has not yet been processed by the executor Agent!)"
 ]
 
 plan_steps = [
     "Summarize and abstract the user's instructions into a generic task, taking care to be abstract and high-level.",
-    "Think comprehensively about the steps to accomplish this generic task, being very abstract and high-level.",
-    "Check to see if you have missed any key steps.",
-    "Based on the thinking you have just done, develop a step-by-step, plan to accomplish the user's instructions. This directive should include multiple sub-goals. The User can only fill in the prompts, not perform any actual actions. Your plan must be rigorous, e.g. When you want 'select' you must indicate the action that follows the selection, e.g. 'select and enter' or 'select and confirm'."
+    "Think comprehensively about the sub-goals to accomplish this generic task, being very abstract and high-level.",
+    "Check to see if you have missed any key sub-goals.",
+    "Based on the thinking you have just done, develop a step-by-step, plan to accomplish the user's instructions. The plan should include one or more sub-goals."
 ]
 
-plan_output = [
-    "plan_thought: Your rationale for developing the plan and sub-goals.",
-    "overall_plan: All plans for completion of 'user instruction'. Check to see if any key steps have been missed. The plan consists of ONE or MORE sub-goals, export it as a list.",
-    "current_sub_goal: The first sub-goal you should work on."
+# plan_output = [
+#     "plan_thought: Your rationale for developing the plan and sub-goals.",
+#     "overall_plan: All plans for completion of 'user instruction'. Check to see if any key steps have been missed. The plan consists of ONE or MORE sub-goals, export it as a list.",
+#     "current_sub_goal: The first sub-goal you should work on."
+# ]
+
+plan_requirements = [
+    "The sub steps should not include specific actions, such as clicking a specific button.",
+    "Don't split an action into two sub-goals, e.g. searching should not be split into activating the search box and entering the search content.",
+    "The User can only fill in the prompts, not perform any actual actions.",
+    "Step such as 'Repeat process...' or 'Repeat step...' is NOT allowed. Every step you wish to repeat must be explicitly created as a new step in the plan, complete step without simplifying any information.",
+    "If user instruction specifies a certain object, such as a specific name for a merchant/product, this must be clearly indicated in the plan.",
+    "Please be careful not to extend user instructions arbitrarily.",
 ]
 
 replan_output = [
     "plan_thought: Your rationale for developing or modifying the plan and sub-goals.",
-    "overall_plan: All plans for completion of 'user instruction'. Check to see if any key steps have been missed. The plan consists of ONE or MORE sub-goals, export it as a list. If you need to update the plan, provide the updated plan here. Otherwise keep the current plan and copy it here. If user interaction is required, the overall plan must be updated.",
-    "current_sub_goal: The sub-goal you should work on. If the current one is complete, pick the next one, otherwise keep it. If all subgoals have been completed, write 'Finished'.",
+    "overall_plan: All plans for completion of 'user_instruction'. Check to see if any key steps have been missed. The plan consists of ONE or MORE sub-goals. Please output a numbered list. If you need to update the plan, provide the updated plan here. Otherwise keep the current plan and copy it here. If user_interaction_type is not 0, the overall plan must be updated.",
+    "current_sub_goal: The sub-goal you should work on. If the current one is complete, pick the next one, otherwise keep it. If all sub-goals have been completed, write 'Finished'.",
     "user_interaction_type: Please use 0, 1, 2, 3, and 4 to indicate.",
     "user_interaction_thought: Explain in detail the reason for your choice (explain one by one why it is not 1~4). If your choice is not 0, please add the information you want to get from interacting with users."
 ]

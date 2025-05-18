@@ -5,13 +5,13 @@ import re
 # 布尔属性集合
 BOOL_ATTRS = {
     "checkable", "checked", "clickable", "enabled", "focusable",
-    "focused", "scrollable", "long-clickable", "password", "selected"
+    "focused", "scrollable", "long-clickable", "password", "selected","visible-to-user"
 }
 # 保留属性集合（不保留原始 bounds）
 ATTRS = {
     "checkable", "checked", "clickable",
     "focused", "scrollable", "long-clickable", "password", "selected",
-    "text", "class", "content-desc", "image-desc","visible-to-user"
+    "text", "class", "content-desc", "image-desc"
 }
 # 可选保留/删除配置
 KEEP_FALSE_BOOLEAN_ATTRS = {}

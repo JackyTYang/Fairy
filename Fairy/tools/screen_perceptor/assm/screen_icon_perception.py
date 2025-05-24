@@ -98,7 +98,7 @@ class ScreenIconPerception:
             for future in concurrent.futures.as_completed(futures):
                 i = futures[future]
                 response = future.result()
-                icon_map[i + 1] = response
+                icon_map[i] = response
 
         return icon_map
 

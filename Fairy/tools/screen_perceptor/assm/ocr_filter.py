@@ -2,9 +2,9 @@ import os
 import xml.etree.ElementTree as ET
 from difflib import SequenceMatcher
 from PIL import Image
-from paddlex import create_model
 from loguru import logger
 from Fairy.info_entity import ScreenFileInfo
+from paddlex import create_pipeline
 
 
 def parse_bounds(bstr: str) -> tuple:
@@ -30,8 +30,8 @@ class OCRFilterTool:
                 过滤后的 XML 字符串
     """
 
-    def __init__(self, model=None):
-        self.model = model or create_model(model_name="PP-OCRv4_mobile_rec")
+    def __init__(self, pipeline=None):
+        self.pipeline = create_pipeline(pipeline="OCR")
 
     def filter(self, xml_str: str, screenshot_file_info: ScreenFileInfo, threshold: float = 0.5) -> str:
         logger.bind(log_tag="fairy_sys").info("[OCR Filter] TASK in progress...")
@@ -45,7 +45,8 @@ class OCRFilterTool:
         for e in root.findall('.//node'):
             text = e.attrib.get('text', '').strip()
             bounds = e.attrib.get('bounds')
-            if text and bounds:
+            class_name = e.attrib.get('class')
+            if text and bounds and (class_name.endswith('TextView') or class_name.endswith('Button')):
                 rect = parse_bounds(bounds)
                 text_nodes.append({'elem': e, 'text': text, 'rect': rect})
 
@@ -62,11 +63,17 @@ class OCRFilterTool:
             crop = img.crop((x1, y1, x2, y2))
             path = os.path.join(temp_path, f"textview_{count}.png")
             crop.save(path)
-            res = self.model.predict(input=path)
-            ocr_text = ''
+            res = self.pipeline.predict(input=path,
+                                        use_doc_orientation_classify=False,
+                                        use_doc_unwarping=False,
+                                        use_textline_orientation=False,
+                                        text_det_limit_type='max'
+                                        )
             count += 1
+            ocr_texts = []
             for response in res:
-                ocr_text = response.get('rec_text', '')
+                ocr_texts = response.get('rec_texts', '')
+            ocr_text = ''.join(ocr_texts)
             if similar(n['text'], ocr_text) < threshold:
                 occluded.append(n)
 

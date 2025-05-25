@@ -14,7 +14,7 @@ class Agent(Worker):
         self._model_client = model_client
         self._system_messages = system_messages
 
-    async def request_llm(self, content: str, images: List[Image] = []):
+    async def request_llm(self, content: str, images: List[Image] = [], parse_response_func=None):
         logger.bind(log_tag="agent_req&res").info(f"[Request]\n{content}")
         user_message = ChatMessage(content=[content]+images, type="UserMessage", source="user")
         logger.bind(log_tag="citlali_sys").debug(f"Requesting LLM...")
@@ -22,7 +22,16 @@ class Agent(Worker):
             self._system_messages + [user_message]
         )
         logger.bind(log_tag="citlali_sys").debug(f"Requesting LLM done.")
-        responses = self.parse_response(response.content)
+
+        try:
+            if parse_response_func is not None:
+                responses = parse_response_func(response.content)
+            else:
+                responses = self.parse_response(response.content)
+        except Exception as e:
+            logger.bind(log_tag="citlali_sys").error("Error:" + str(e))
+            logger.bind(log_tag="gent_req&res").error("[Error] Response Content:" + str(response.content))
+
         if isinstance(responses, tuple):
             for r in responses:
                 logger.bind(log_tag="agent_req&res").info(f"[Response]\n{str(r)}")

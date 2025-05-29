@@ -8,7 +8,7 @@ reflection_steps = [
         "A: Successful, with results meeting expectations and fully accomplishing the sub-goal;",
         "B: Partial Successful, where the result was as expected but did not fully accomplish the sub-goal. For example, all options should be selected, but currently only some options are selected;",
         "C: Failure, the result is incorrect and an attempt to fall back to the previous state is required;",
-        "D: Failure, the action was executed without producing any screen change."
+        "D: Failure, the action was executed without producing any screen change. If the current action is 'Finish', the result D is not allowed."
     ],
     "If the 'action result' is C or D, then: try to explain the 'Error Potential Causes' of the failure;"
 ]

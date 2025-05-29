@@ -84,7 +84,7 @@ class GlobalRePlannerAgent(Agent):
                  f"- Instruction: {instruction}\n" \
                  f"\n"
 
-        prompt += f"Please complete the 'Instruction' according to the 'Key Information'. Non-critical information can be omitted to ensure that critical information is not lost. Output the complementary Instruction directly, without including the thought process or other content."
+        prompt += f"Please complement the 'Instruction' according to the 'Key Information'.Ensure that any key information is not lost. Output the complementary Instruction directly, without including the thought process or other content. Also, append to the instructions any key information that you think will be useful in the execution of the instructions."
 
         return prompt
 

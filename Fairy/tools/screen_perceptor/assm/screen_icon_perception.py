@@ -1,6 +1,8 @@
 import base64
 import concurrent
 import os
+import re
+
 from loguru import logger
 from PIL import Image
 from openai import OpenAI
@@ -31,7 +33,7 @@ def extract_icons_and_attach_id(root, screenshot_path, output_img_dir):
                 new_w = int(w * scale)
                 new_h = int(h * scale)
                 cropped = cropped.resize((new_w, new_h), Image.LANCZOS)
-            fname = f"{count}.png"
+            fname = f"imageview_{count}.png"
             cropped.save(os.path.join(output_img_dir, fname))
             node.attrib["image-id"] = count
             count += 1
@@ -43,8 +45,8 @@ def annotate_xml_with_descriptions(root, desc_map):
     image_nodes = root.findall(".//node[@class='android.widget.ImageView']")
     for node in image_nodes:
         img_id = node.attrib.pop('image-id', None)
-        if img_id and img_id + 1 in desc_map:
-            node.attrib['image-desc'] = desc_map[img_id + 1]
+        if img_id in desc_map:
+            node.attrib['image-desc'] = desc_map[img_id]
     # print(f"✅ 已将 image-desc 注入 XML")
     return ET.tostring(root, encoding='utf-8').decode('utf-8')
 
@@ -73,9 +75,11 @@ class ScreenIconPerception:
         os.makedirs(image_temp_path, exist_ok=True)
         extract_icons_and_attach_id(root, screenshot_file_info.get_screenshot_fullpath(), image_temp_path)
 
-        images = os.listdir(image_temp_path)
+        files = os.listdir(image_temp_path)
+        images = [f for f in files if f.startswith('imageview_')]
         if len(images) > 0:
-            images = sorted(images, key=lambda x: int(x.split('/')[-1].split('.')[0]))
+            pattern = re.compile(r'_(\d+)\.')
+            images = sorted(images,key=lambda x: int(pattern.search(x).group(1)))
             prompt = 'This image is an icon/image from a phone screen. Please briefly describe this icon/image in one sentence.'
 
             for i in range(len(images)):
@@ -94,7 +98,7 @@ class ScreenIconPerception:
             for future in concurrent.futures.as_completed(futures):
                 i = futures[future]
                 response = future.result()
-                icon_map[i + 1] = response
+                icon_map[i] = response
 
         return icon_map
 

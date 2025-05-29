@@ -4,13 +4,15 @@ Search Tips: SEARCH BUTTON usually contains the word "search" or "搜索", or a 
 
 Search Tips: As a promotional tool, the search bar may have been pre-filled with promotional content, and clicking the search button directly may result in searching for advertisements. In this case, you can tap the body of the SEARCH BAR (INSTEAD OF A SEARCH BUTTON), delete all the contents, and then input in the content you want to search.
 
-Search Tips: After searching, double-check that the results are as expected, and if the search doesn't turn up as expected, you should either RE-SEARCH or BACK instead of viewing the incorrect search results.
+Search Tips: After entering your search, pressing Enter immediately will jump to the search results page.
 
 Search Tips: If you do not press enter or the SEARCH BUTTON after entering your search, it may not be a search results page.
 
 Search Tips: If there is a SEARCH BAR and you HAVE NOT used it BEFORE, you should consider searching using the SEARCH BAR before considering swiping down the list to search for content.
 
 Search Tips: The language of the search content should be consistent with the language used by the user in the "Instruction" section. If the user communicates with you in Chinese, the search content should also be in Chinese.
+
+Search Tips: After searching, double-check that the results are as expected, and if the search doesn't turn up as expected, you should either RE-SEARCH or BACK instead of viewing the incorrect search results.
 
 Select Tips: Please follow the user's instructions to the letter, e.g. if the user asks to select a store, you cannot select a product at this time.
 

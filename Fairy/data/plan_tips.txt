@@ -6,11 +6,15 @@ For shopping tasks: When placing an order, be sure to select an offer that will 
 
 For shopping tasks: There are often advertisements on the homepage of the app, on the search page, and on the search results page that may be relevant to the user's needs, but which may limit the user's choices or cause an error. So DON'T click on anything easily before executing a search, as it's likely to be an advertisement.
 
+For shopping tasks: Usually you need to add the product to the shopping cart before checking out
+
+For shopping tasks: If you can't find the checkout button after adding the product to the shopping cart, you usually need to go to the shopping cart to check out
+
 For takeout ordering tasks: An ordering task is a type of shopping task. Usually, the first thing you should do is search for the name of the meal, which will display the name of the merchant selling such meal, then select the merchant selling the meal, which will take you to the specific merchant's page to find the meal you need to purchase. Before determining the specific merchant and meal, it is necessary to interact with the user.
 
 For file management tasks: Any deletion of files to the Recycle Bin does not require user consent if a Recycle Bin mechanism exists, but only for complete and irreversible deletion of files.
 
-For information collection tasks: You need to make sure that you collect all the information that meets the user's requirements, and if there are more than ten pieces of this information, it should be up to you to select (without user interaction) the ten that are most likely to meet the user's needs.
+For information collection tasks: You need to make sure that you collect all the information that meets the user's requirements.
 
 For information collection tasks: Do not terminate the task until you are confident that sufficient information has been obtained. Information retrieval does not require the user to select or present anything to the user, just check that the KeyInfo is complete.
 

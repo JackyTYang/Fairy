@@ -1,5 +1,4 @@
 from enum import Enum
-from re import escape
 
 
 class AtomicActionType(Enum):
@@ -22,7 +21,7 @@ ATOMIC_ACTION_SIGNITURES = {
     AtomicActionType.Tap: {
         "arguments": ["x", "y"],
         "description": "Tap the position (x, y) in current screen."
-                       "You can use it to click on a button (with an icon or text), a link or to check an option, an input box (for typing) in general.",
+                       "You can use it to click on a button (with an icon or text), a link or to check an option, an input box (for typing) in general.If the XML contains coordinate information, you must use the coordinates in the XML.",
     },
     AtomicActionType.Swipe: {
         "arguments": ["x1", "y1", "x2", "y2", "duration"],

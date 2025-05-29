@@ -27,8 +27,6 @@ from Fairy.tools.user_chat import UserChat
 from Fairy.type import EventType
 from Fairy.utils.task_executor import TaskExecutor
 
-os.environ["ADB_PATH"] = "C:/Users/neosunjz/AppData/Local/Android/Sdk/platform-tools/adb.exe"
-
 class FairyCore:
     def __init__(self, config:FairyConfig):
         self._config = config
@@ -83,7 +81,7 @@ class FairyCore:
               "/_/    \__,_/_/_/   \__, /  \n"
               "                   /____/   \n"
               )
-        print("Fairy Mobile Assistant V0.1.9 \n"
+        print("Fairy Mobile Assistant V1.0.1 \n"
               "[Design BY Jiazheng.Sun, Te.Yang, Jiayang.Niu, Yongyong.Lu] \n"
               "[Fudan University CodeWisdom Lab © 2025]\n")
         await self.new_task(task_name)

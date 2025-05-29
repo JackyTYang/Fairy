@@ -36,7 +36,7 @@ class UiAutomatorMobileScreenshot(MobileScreenshot):
 
         output, exit_code = self.dev.shell("dumpsys window | grep 'mCurrentFocus'", timeout=60)
 
-        pattern = r"mCurrentFocus=Window\{([a-f0-9]+) u(\d+) ([^/]+)/(.*)\}"
+        pattern = r"mCurrentFocus=Window\{([a-f0-9]+) u(\d+) ([^/:}]+)[/:]([^}]*)\}"
         current_activity_info = re.match(pattern, output.lstrip())
         if exit_code == 0:
             if current_activity_info:

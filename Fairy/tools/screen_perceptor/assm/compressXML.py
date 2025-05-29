@@ -67,6 +67,7 @@ def process_node(node, parent=None, keep_system_nav=False):
     # 清理并重构属性字典
     new_attrib = {}
     clickable = False
+    desc = False
     center = None
 
     for k, v in node.attrib.items():
@@ -88,6 +89,8 @@ def process_node(node, parent=None, keep_system_nav=False):
         if k == 'bounds':
             # 不保留 bounds 原始属性
             continue
+        if k == 'content-desc':
+            desc = True
         if not val and k not in KEEP_EMPTY_STRING_ATTRS:
             continue
         new_attrib[k] = v
@@ -104,9 +107,8 @@ def process_node(node, parent=None, keep_system_nav=False):
         except Exception:
             pass
     # 仅在 clickable 为真且存在 raw_bounds 时添加 center
-    if clickable:
+    if clickable or desc:
         node.attrib['center'] = center
-
     # 收集 info
     text = node.attrib.get('text', '').strip()
     image_desc = node.attrib.get('image-desc', '').strip()
@@ -179,7 +181,7 @@ def parse_bounds(bounds_str):
 
 def is_keyboard_active(ui_xml, height, imes=None):
     imes = imes or [
-        'com.google.android.inputmethod', 'com.sohu.inputmethod', 'com.baidu.input',
+        'com.google.android.inputmethod', 'com.sohu.inputmethod', 'com.baidu.input_huawei',
         'com.huawei.ime', 'com.nolan.inputmethod', 'com.iflytek.inputmethod',
         'com.tencent.qqpinyin'
     ]
@@ -189,12 +191,17 @@ def is_keyboard_active(ui_xml, height, imes=None):
         return False
     for node in root.iter():
         rid = node.attrib.get('resource-id', '')
+        pac = node.attrib.get('package', '')
         cls = node.attrib.get('class', '')
         vis = node.attrib.get('visible-to-user', 'false') == 'true'
         bounds = node.attrib.get('bounds', '')
         _, _, _, y2 = parse_bounds(bounds)
         if vis and (rid.startswith(tuple(imes)) or rid in ['android:id/input_method_nav_buttons',
                                                            'com.github.uiautomator:id/keyboard'] or 'keyboard' in cls.lower() or 'ime' in cls.lower()):
+            if y2 >= height * 0.85:
+                return True
+        if vis and (pac.startswith(tuple(imes)) or pac in ['android:id/input_method_nav_buttons',
+                                                                   'com.github.uiautomator:id/keyboard'] or 'keyboard' in cls.lower() or 'ime' in cls.lower()):
             if y2 >= height * 0.85:
                 return True
     return False

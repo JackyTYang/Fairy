@@ -48,7 +48,7 @@ plan_requirements = [
 replan_output = [
     "plan_thought: Your rationale for developing or modifying the plan and sub-goals.",
     "overall_plan: All plans for completion of 'user_instruction'. Check to see if any key steps have been missed. The plan consists of ONE or MORE sub-goals. Please output a numbered list. If you need to update the plan, provide the updated plan here. Otherwise keep the current plan and copy it here. If user_interaction_type is not 0, the overall plan must be updated.",
-    "current_sub_goal: The sub-goal you should work on. If the current one is complete, pick the next one, otherwise keep it. If all sub-goals have been completed, write 'Finished'.",
+    "current_sub_goal: The sub-goal you should work on. If the current one is complete fully (Action Result is A), pick the next one, otherwise keep it. If all sub-goals have been completed, write 'Finished'.",
     "user_interaction_type: Please use 0, 1, 2, 3, and 4 to indicate.",
     "user_interaction_thought: Explain in detail the reason for your choice (explain one by one why it is not 1~4). If your choice is not 0, please add the information you want to get from interacting with users."
 ]

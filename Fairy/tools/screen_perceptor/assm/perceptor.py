@@ -15,14 +15,15 @@ class AdaptiveSemanticScreenModeling:
 
     def get_perception_infos(self, screenshot_file_info: ScreenFileInfo, ui_hierarchy_xml):
         # ocr过滤被遮盖节点
-        ui_hierarchy_xml = self.ocr_filter.filter(ui_hierarchy_xml,screenshot_file_info)
+        ocr_filter_xml = self.ocr_filter.filter(ui_hierarchy_xml,screenshot_file_info)
         # 判断keyboard是否激活
         width, height = Image.open(screenshot_file_info.get_screenshot_fullpath()).size
-        keyboard_status = is_keyboard_active(ui_hierarchy_xml, height)
+        keyboard_status = is_keyboard_active(ocr_filter_xml, height)
         # imageview添加描述信息
-        xml = self.screen_icon_perception.get_icon_perception(screenshot_file_info, ui_hierarchy_xml)
+        xml = self.screen_icon_perception.get_icon_perception(screenshot_file_info, ocr_filter_xml)
         # xml清洗 去除冗余信息
-        perception_infos = get_compress_xml(xml)
+        compressed_xml = get_compress_xml(xml)
 
-        return screenshot_file_info, AdaptiveSemanticScreenModelingInfo(width, height, perception_infos,
+        return screenshot_file_info, AdaptiveSemanticScreenModelingInfo(width, height,
+                                                                        [ui_hierarchy_xml, compressed_xml],
                                                                         keyboard_status)

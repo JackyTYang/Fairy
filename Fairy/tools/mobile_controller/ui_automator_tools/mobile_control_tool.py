@@ -26,7 +26,8 @@ class UiAutomatorMobileController(MobileController):
             case AtomicActionType.Tap:
                 result = self.dev.click(args['x'],args['y'])
             case AtomicActionType.LongPress:
-                result = self.dev.long_click(args['x'],args['y'],args['duration'])
+                duration = args.get('duration', 1000)
+                result = self.dev.long_click(args['x'],args['y'],duration/1000)
             case AtomicActionType.Input:
                 result = self.dev.send_keys(args['text']) # input from pasteboard
             case AtomicActionType.ClearInput:

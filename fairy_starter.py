@@ -1,7 +1,7 @@
 import asyncio
 import os
 
-from Fairy.config.model_config import CoreChatModelConfig, RAGChatModelConfig, RAGEmbedModelConfig
+from Fairy.config.model_config import CoreChatModelConfig, RAGChatModelConfig, RAGEmbedModelConfig, ModelConfig
 from Fairy.fairy import FairyCore
 from Fairy.config.fairy_config import FairyConfig
 
@@ -38,6 +38,11 @@ async def main():
                           ),
                           rag_embed_model=RAGEmbedModelConfig(
                               model_name="intfloat/multilingual-e5-large-instruct"
+                          ),
+                          visual_prompt_model=ModelConfig(
+                              model_name="qwen-vl-plus",
+                              api_key="sk-d4e50bd7e07747b4827611c28da95c23",
+                              api_base="https://dashscope.aliyuncs.com/compatible-mode/v1"
                           ),
                           non_visual_mode=True,
                           reflection_policy='standalone')

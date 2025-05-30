@@ -2,7 +2,7 @@ import os
 from enum import Enum
 
 from Citlali.models.openai.client import OpenAIChatClient
-from Fairy.config.model_config import CoreChatModelConfig, RAGChatModelConfig, RAGEmbedModelConfig
+from Fairy.config.model_config import CoreChatModelConfig, RAGChatModelConfig, RAGEmbedModelConfig, ModelConfig
 
 
 class InteractionMode(Enum):
@@ -15,20 +15,21 @@ class MobileControllerType(Enum):
 
 class ScreenPerceptionType(Enum):
     FVP = 1
-    ASSM = 2
+    SSIP = 2
 
 class FairyConfig:
     def __init__(self,
                  model: CoreChatModelConfig,
                  rag_model: RAGChatModelConfig,
                  rag_embed_model: RAGEmbedModelConfig,
+                 visual_prompt_model: ModelConfig,
                  adb_path,
                  temp_path=None,
                  screenshot_phone_path=None,
                  screenshot_filename=None,
                  action_executor_type: MobileControllerType = MobileControllerType.UIAutomator,
                  screenshot_getter_type: MobileControllerType = MobileControllerType.UIAutomator,
-                 screen_perception_type: ScreenPerceptionType = ScreenPerceptionType.ASSM,
+                 screen_perception_type: ScreenPerceptionType = ScreenPerceptionType.SSIP,
                  non_visual_mode: bool=False,
                  interaction_mode: InteractionMode=InteractionMode.Dialog,
                  manual_collect_app_info: bool=False,
@@ -38,6 +39,8 @@ class FairyConfig:
         self.model_client = model.build()
         self.rag_model_client = rag_model.build()
         self.rag_embed_model_client = rag_embed_model.build()
+
+        self.visual_prompt_model_config = visual_prompt_model
 
         self._adb_path = adb_path
         self.device = None

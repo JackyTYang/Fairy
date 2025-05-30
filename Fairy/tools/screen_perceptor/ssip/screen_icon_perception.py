@@ -7,8 +7,9 @@ from loguru import logger
 from PIL import Image
 from openai import OpenAI
 
+from Fairy.config.model_config import ModelConfig
 from Fairy.info_entity import ScreenFileInfo
-from Fairy.tools.screen_perceptor.assm.compressXML import parse_bounds
+from Fairy.tools.screen_perceptor.ssip.compressXML import parse_bounds
 import xml.etree.ElementTree as ET
 
 
@@ -37,7 +38,6 @@ def extract_icons_and_attach_id(root, screenshot_path, output_img_dir):
             cropped.save(os.path.join(output_img_dir, fname))
             node.attrib["image-id"] = count
             count += 1
-    # print(f"🎉 图标提取完成，共保存 {count} 张图标。")
 
 
 # ----- XML 注入描述 -----
@@ -47,7 +47,6 @@ def annotate_xml_with_descriptions(root, desc_map):
         img_id = node.attrib.pop('image-id', None)
         if img_id in desc_map:
             node.attrib['image-desc'] = desc_map[img_id]
-    # print(f"✅ 已将 image-desc 注入 XML")
     return ET.tostring(root, encoding='utf-8').decode('utf-8')
 
 
@@ -58,14 +57,11 @@ def encode_image(image_path):
 
 
 class ScreenIconPerception:
-    def __init__(self,
-                 model="qwen-vl-plus",
-                 api_key="sk-d4e50bd7e07747b4827611c28da95c23",
-                 base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"):
-        self.model = model
+    def __init__(self, visual_prompt_model_config: ModelConfig):
+        self.model = visual_prompt_model_config.model_name
         self.client = OpenAI(
-            api_key=api_key,
-            base_url=base_url,
+            api_key=visual_prompt_model_config.api_key,
+            base_url=visual_prompt_model_config.api_base,
         )
 
     def get_icon_perception(self, screenshot_file_info: ScreenFileInfo, ui_hierarchy_xml):

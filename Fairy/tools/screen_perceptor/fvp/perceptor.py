@@ -1,6 +1,7 @@
 # --!-- This module refers to the open-source implementation of the MobileAgent series work
 from copy import deepcopy
 
+from Fairy.config.model_config import ModelConfig
 from .entity import FineGrainedVisualPerceptionInfo
 from .screen_icon_perception import ScreenIconPerception
 from .screen_text_perception import ScreenTextPerception
@@ -10,9 +11,9 @@ import logging
 logging.getLogger().setLevel(logging.WARNING)
 
 class FineGrainedVisualPerceptor:
-    def __init__(self):
+    def __init__(self, visual_prompt_model_config: ModelConfig):
         self.screen_text_perception = ScreenTextPerception()
-        self.screen_icon_perception = ScreenIconPerception()
+        self.screen_icon_perception = ScreenIconPerception(visual_prompt_model_config)
 
 
     def get_perception_infos(self, screenshot_file_info: ScreenFileInfo):

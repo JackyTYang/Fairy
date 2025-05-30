@@ -8,9 +8,9 @@ from .ocr_filter import OCRFilterTool
 from .screen_icon_perception import ScreenIconPerception
 
 
-class AdaptiveSemanticScreenModeling:
-    def __init__(self):
-        self.screen_icon_perception = ScreenIconPerception()
+class ScreenStructuredInfoPerception:
+    def __init__(self, visual_prompt_model_config):
+        self.screen_icon_perception = ScreenIconPerception(visual_prompt_model_config)
         self.ocr_filter = OCRFilterTool()
 
     def get_perception_infos(self, screenshot_file_info: ScreenFileInfo, ui_hierarchy_xml):

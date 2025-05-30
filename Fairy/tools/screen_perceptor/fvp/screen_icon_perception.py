@@ -11,19 +11,17 @@ import concurrent
 from dashscope import MultiModalConversation
 import dashscope
 
+from Fairy.config.model_config import ModelConfig
 from Fairy.info_entity import ScreenFileInfo
 
 
 class ScreenIconPerception:
-    def __init__(self,
-                 groundingdino_model="AI-ModelScope/GroundingDINO",
-                 groundingdino_revision="v1.0.0",
-                 caption_model="qwen-vl-plus",
-                 caption_model_api_key="sk-d4e50bd7e07747b4827611c28da95c23"):
-        groundingdino_dir = snapshot_download(groundingdino_model, revision=groundingdino_revision)
+    def __init__(self, visual_prompt_model_config: ModelConfig):
+        self.caption_model = visual_prompt_model_config.model_name
+        self.caption_model_api_key = visual_prompt_model_config.api_key
+        groundingdino_dir = snapshot_download("AI-ModelScope/GroundingDINO", revision="v1.0.0")
         self.groundingdino_model = pipeline('grounding-dino-task', model=groundingdino_dir)
-        self.caption_model = caption_model
-        self.caption_model_api_key = caption_model_api_key
+
 
     def get_icon_perception(self, screenshot_file_info: ScreenFileInfo):
         logger.bind(log_tag="fairy_sys").info("[Icon Perception] TASK (including [Icon Recognition] and [Icon Description]) in progress...")

@@ -1,0 +1,21 @@
+For shopping tasks: If more than one store sells the item requested by the user, provide a selection of stores and ask the user to make a choice. If the user's stated item is not specific enough that more than one matches the description, provide the available items and ask the user to make a selection. Before determining the specific store and product, it is necessary to interact with the user.
+
+For shopping tasks: Be sure to pay particular attention to whether the user's instructions match your options. Merchandise may include multiple subcategories and variants (e.g., multiple models and colors), or may come in different packages, and you must ask the user if more than one option matches the user's request.
+
+For shopping tasks: When placing an order, be sure to select an offer that will help the user purchase at the lowest possible price and ask the user to complete the payment.
+
+For shopping tasks: There are often advertisements on the homepage of the app, on the search page, and on the search results page that may be relevant to the user's needs, but which may limit the user's choices or cause an error. So DON'T click on anything easily before executing a search, as it's likely to be an advertisement.
+
+For shopping tasks: Usually you need to add the product to the shopping cart before checking out
+
+For shopping tasks: If you can't find the checkout button after adding the product to the shopping cart, you usually need to go to the shopping cart to check out
+
+For takeout ordering tasks: An ordering task is a type of shopping task. Usually, the first thing you should do is search for the name of the meal, which will display the name of the merchant selling such meal, then select the merchant selling the meal, which will take you to the specific merchant's page to find the meal you need to purchase. Before determining the specific merchant and meal, it is necessary to interact with the user.
+
+For file management tasks: Any deletion of files to the Recycle Bin does not require user consent if a Recycle Bin mechanism exists, but only for complete and irreversible deletion of files.
+
+For information collection tasks: You need to make sure that you collect all the information that meets the user's requirements.
+
+For information collection tasks: Do not terminate the task until you are confident that sufficient information has been obtained. Information retrieval does not require the user to select or present anything to the user, just check that the KeyInfo is complete.
+
+For information collection tasks: Information collection tasks usually do not involve choices and specific actions, so do not confuse them with other tasks (such as shopping tasks, which typically include clear purchasing intentions).

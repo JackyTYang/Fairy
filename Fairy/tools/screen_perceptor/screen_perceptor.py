@@ -8,7 +8,13 @@ from Fairy.tools.mobile_controller.ui_automator_tools.screenshot_tool import UiA
 from Fairy.info_entity import ScreenInfo
 from Fairy.message_entity import EventMessage
 from Fairy.tools.screen_perceptor.ssip.perceptor import ScreenStructuredInfoPerception
-from Fairy.tools.screen_perceptor.fvp.perceptor import FineGrainedVisualPerceptor
+try:
+    from Fairy.tools.screen_perceptor.fvp.perceptor import FineGrainedVisualPerceptor
+except ImportError:
+    logger.bind(log_tag="fairy_sys").warning(
+        "Additional dependencies are required to use FVP."
+    )
+    FineGrainedVisualPerceptor = None
 from Fairy.type import EventType
 
 
@@ -54,6 +60,8 @@ class ScreenPerceptor(Worker):
 
         if self.screen_perception_type == ScreenPerceptionType.FVP:
             # Use FVP
+            if FineGrainedVisualPerceptor is None:
+                raise ImportError("FineGrainedVisualPerceptor requires additional dependencies. Please install them.")
             fvp = FineGrainedVisualPerceptor(self.visual_prompt_model_config)
             return fvp.get_perception_infos(screenshot_file_info)
         elif self.screen_perception_type == ScreenPerceptionType.SSIP:

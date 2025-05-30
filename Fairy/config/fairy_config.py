@@ -1,21 +1,22 @@
 import os
 from enum import Enum
 
-from Citlali.models.openai.client import OpenAIChatClient
+from dotenv import load_dotenv
+
 from Fairy.config.model_config import CoreChatModelConfig, RAGChatModelConfig, RAGEmbedModelConfig, ModelConfig
 
 
 class InteractionMode(Enum):
-    Dialog = 1
-    Console = 2
+    Dialog = "DIALOG"
+    Console = "CONSOLE"
 
 class MobileControllerType(Enum):
-    UIAutomator = 1
-    ADB = 2
+    UIAutomator = "UI_AUTOMATOR"
+    ADB = "ADB"
 
 class ScreenPerceptionType(Enum):
-    FVP = 1
-    SSIP = 2
+    FVP = "FVP"
+    SSIP = "SSIP"
 
 class FairyConfig:
     def __init__(self,
@@ -86,3 +87,40 @@ class FairyConfig:
 
     def get_adb_path(self):
         return (self._adb_path + f" -s {self.device}") if self.device is not None else self._adb_path
+    
+class FairyEnvConfig(FairyConfig):
+    def __init__(self):
+        load_dotenv()
+        super().__init__(model=CoreChatModelConfig(
+                              model_name=os.getenv("CORE_LMM_MODEL_NAME"),
+                              model_temperature=0,
+                              model_info={"vision": True, "function_calling": True, "json_output": True},
+                              api_base=os.getenv("CORE_LMM_API_BASE"),
+                              api_key=os.getenv("CORE_LMM_API_KEY")
+                          ),
+                          rag_model=RAGChatModelConfig(
+                              model_name=os.getenv("RAG_LLM_API_NAME"),
+                              model_temperature=0,
+                              api_base=os.getenv("RAG_LLM_API_BASE"),
+                              api_key=os.getenv("RAG_LLM_API_KEY")
+                          ),
+                          rag_embed_model=RAGEmbedModelConfig(
+                              model_name=os.getenv("RAG_EMBED_MODEL_NAME")
+                          ),
+                          visual_prompt_model=ModelConfig(
+                              model_name=os.getenv("VISUAL_PROMPT_LMM_API_NAME"),
+                              api_base=os.getenv("VISUAL_PROMPT_LMM_API_BASE"),
+                              api_key=os.getenv("VISUAL_PROMPT_LMM_API_KEY")
+                          ),
+                          adb_path=os.getenv("ADB_PATH"),
+                          temp_path=os.getenv("TEMP_PATH"),
+                          screenshot_phone_path=os.getenv("SCREEN_PHONE_PATH"),
+                          screenshot_filename=os.getenv("SCREEN_FILENAME"),
+                          action_executor_type= MobileControllerType(os.getenv("ACTION_EXECUTOR_TYPE")),
+                          screenshot_getter_type = MobileControllerType(os.getenv("SCREENSHOT_GETTER_TYPE")),
+                          screen_perception_type = ScreenPerceptionType(os.getenv("SCREEN_PERCEPTION_TYPE")),
+                          interaction_mode = InteractionMode(os.getenv("INTERACTION_MODE")),
+                          non_visual_mode=bool(os.getenv("NON_VISUAL_MODE")),
+                          manual_collect_app_info=bool(os.getenv("MANUAL_COLLECT_APP_INFO")),
+                          reflection_policy=os.getenv("REFLECTION_POLICY"))
+    

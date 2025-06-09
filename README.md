@@ -32,13 +32,13 @@ Fairy does not support **iOS** at this time. You must have an **Android** device
 Please locate the `.env` file and complete the following configuration:
 
 1. Set the backbone model for the Agent reasoning. You should replace `<YOUR_LMM_MODEL_NAME>`, `<YOUR_LMM_API_BASE>` `<YOUR_LMM_API_KEY>` with your model, base URL, and API key.
-```
+```dotenv
 CORE_LMM_MODEL_NAME=<YOUR_LMM_MODEL_NAME> # e.g., gpt-4o-2024-11-20
 CORE_LMM_API_BASE=<YOUR_LMM_API_BASE> # e.g., https://api.openai.com/v1
 CORE_LMM_API_KEY=<YOUR_LMM_API_KEY> # e.g., sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 2. Set the RAG model and embedding model for knowledge retrieval and processing. We default to `intfloat/multilingual-e5-large-instruct` for embedding and use `qwen-turbo-0428` for retrieval. You should replace `<YOUR_RAG_LLM_API_KEY>` with your API key. Please follow this to get the [Qwen API Key](https://help.aliyun.com/zh/model-studio/get-api-key).
-```
+```dotenv
 # We recommend not modifying the default model.
 
 RAG_LLM_API_NAME=qwen-turbo-0428
@@ -50,14 +50,14 @@ RAG_EMBED_MODEL_NAME=intfloat/multilingual-e5-large-instruct
 ```
 
 3. Set the visual prompt model for image understanding in mobile screenshots. We default to `qwen-vl-plus` for visual tasks. You should replace `<YOUR_VISUAL_PROMPT_LMM_API_KEY>` with your API key. Please follow this to get the [Qwen API Key](https://help.aliyun.com/zh/model-studio/get-api-key).
-```
+```dotenv
 VISUAL_PROMPT_LMM_API_NAME=qwen-vl-plus
 VISUAL_PROMPT_LMM_API_BASE=https://dashscope.aliyuncs.com/compatible-mode/v1
 VISUAL_PROMPT_LMM_API_KEY=<YOUR_VISUAL_PROMPT_LMM_API_KEY> # e.g., sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 4. Set the ADB path to your local ADB installation. Ensure that the path is correct and points to the `adb.exe` file. You can find it in your Android SDK installation directory, typically under `platform-tools`.
-```
+```dotenv
 ADB_PATH=<YOUR_ADB_PATH> # e.g., C:/Users/<YOUR_USER_NAME>/AppData/Local/Android/Sdk/platform-tools/adb.exe
 ```
 
@@ -71,7 +71,7 @@ python fairy_starter.py --task "Order me a McDonald's burger."
 
 ## 📖 Research Homepage
 
-For more details on Fairy's design, case studies, evaluation tasks, and the full source code, please visit the project [Homepage](https://neosunjz.github.io/FairyResearch).
+For more details on Fairy's design, case studies, evaluation tasks, and the full source code, please visit the project [Homepage]() (In compliance with double-blind review guidelines, this will be released upon acceptance of the paper).
 
 ## License
 

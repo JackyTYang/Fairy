@@ -17,7 +17,7 @@ from Fairy.agents.app_executor_agents.app_planner_agent.planner_common import sc
 from Fairy.agents.prompt_common import ordered_list, output_json_object, unordered_list
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
-from Fairy.memory.long_time_memory_manager import LongMemoryCallType
+from Fairy.memory.long_time_memory_manager import LongMemoryCallType, LongMemoryType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.message_entity import EventMessage, CallMessage
 from Fairy.type import EventType, CallType
@@ -110,10 +110,12 @@ class AppRePlannerForActExecAgent(Agent):
         # 从LongTimeMemoryManager获取Tips
         long_memory = await (await self.call("LongTimeMemoryManager",
             CallMessage(CallType.Memory_GET,{
-                LongMemoryCallType.GET_Plan_Tips: instruction_memory,
+                LongMemoryCallType.GET_Tips: {
+                    LongMemoryType.Plan_Tips: {"query": instruction_memory, "app_package_name": instruction_memory.app_package_name}
+                }
             })
         ))
-        tips = long_memory[LongMemoryCallType.GET_Plan_Tips]
+        plan_tips = long_memory[LongMemoryCallType.GET_Tips][LongMemoryType.Plan_Tips]
 
         # 构建Prompt
         images = []
@@ -132,7 +134,7 @@ class AppRePlannerForActExecAgent(Agent):
                 current_action_memory[ActionMemoryType.StartScreenPerception] if not self.standalone_reflector_mode else None,
                 current_action_memory[ActionMemoryType.EndScreenPerception],
                 key_info_memory,
-                tips
+                plan_tips
             ),
             images=images
         )

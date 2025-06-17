@@ -10,7 +10,7 @@ from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
-from Fairy.memory.long_time_memory_manager import LongMemoryCallType
+from Fairy.memory.long_time_memory_manager import LongMemoryCallType, LongMemoryType
 from Fairy.memory.short_time_memory_manager import ActionMemoryType, ShortMemoryCallType
 from Fairy.message_entity import EventMessage, CallMessage
 from Fairy.type import EventType, CallType
@@ -58,10 +58,15 @@ class AppActionDeciderAgent(Agent):
             long_memory = await (await self.call(
                 "LongTimeMemoryManager",
                 CallMessage(CallType.Memory_GET, {
-                    LongMemoryCallType.GET_Execution_ERROR_Tips: historical_action_memory[ActionMemoryType.ActionResult][-1].error_potential_causes,
+                    LongMemoryCallType.GET_Tips: {
+                        LongMemoryType.Execution_ERROR_Tips: {
+                            "query": historical_action_memory[ActionMemoryType.ActionResult][-1].error_potential_causes,
+                            "app_package_name": instruction_memory.app_package_name
+                        }
+                    }
                 })
             ))
-            execution_tips = long_memory[LongMemoryCallType.GET_Execution_ERROR_Tips]
+            execution_tips = long_memory[LongMemoryCallType.GET_Tips][LongMemoryType.Execution_ERROR_Tips]
         else:
             # 如果上次任务成功，则需要提取执行Tips
             # 提取当前的Sub-goal
@@ -69,11 +74,16 @@ class AppActionDeciderAgent(Agent):
             # 从LongTimeMemoryManager获取Tips
             long_memory = await (await self.call(
                 "LongTimeMemoryManager",
-                CallMessage(CallType.Memory_GET,{
-                    LongMemoryCallType.GET_Execution_Tips: sub_goal,
+                CallMessage(CallType.Memory_GET, {
+                    LongMemoryCallType.GET_Tips: {
+                        LongMemoryType.Execution_Tips: {
+                            "query": sub_goal,
+                            "app_package_name": instruction_memory.app_package_name
+                        }
+                    }
                 })
             ))
-            execution_tips = long_memory[LongMemoryCallType.GET_Execution_Tips]
+            execution_tips = long_memory[LongMemoryCallType.GET_Tips][LongMemoryType.Execution_Tips]
 
         images = []
         if not self.non_visual_mode:

@@ -7,12 +7,12 @@ from Fairy.tools.mobile_controller.action_type import AtomicActionType
 
 
 class ScreenFileInfo:
-    def __init__(self,file_path, file_name, file_type):
+    def __init__(self,file_path, file_name, file_type, file_build_timestamp=None):
         self.file_path = file_path
         self.file_name = file_name
         self.file_extra_name = None
         self.file_type = file_type
-        self.file_build_timestamp = int(datetime.now().timestamp())
+        self.file_build_timestamp = int(datetime.now().timestamp()) if file_build_timestamp is None else file_build_timestamp
 
     def set_extra_name(self, extra_name):
         self.file_extra_name = extra_name
@@ -134,9 +134,10 @@ class UserInteractionInfo:
                 f"\n -----------UserInteractionInfo END-----------")
 
 class InstructionInfo:
-    def __init__(self, ori, language, key_info_request):
+    def __init__(self, ori, language, app_package_name, key_info_request):
         self.ori = ori
         self.language = language
+        self.app_package_name = app_package_name
         self.key_info_request = key_info_request
         self.updated = []
 
@@ -144,6 +145,7 @@ class InstructionInfo:
         return (f"\n -------------InstructionInfo-------------"
                 f"\n - Original Instruction : {self.ori}"
                 f"\n - Instruction Language: {self.language}"
+                f"\n - App Package Name: {self.app_package_name}"
                 f"\n - Key Info Request: {self.key_info_request}"
                 f"\n - User Update Instructions: {self.updated}"
                 f"\n -----------InstructionInfo END-----------")

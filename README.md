@@ -1,7 +1,7 @@
 
 <div style="display: flex; justify-content: center; align-items: center; flex-direction: column; margin: 20px 0px">
   <img src="README/images/logo.png" alt="logo" width="200">
-  <h1 style="margin: 10px; padding: 0px; text-align: center">Fairy: Interactive Mobile Assistant to Real-world Tasks via Multi-agent Evolution</h1>
+  <h1 style="margin: 10px; padding: 0px; text-align: center">Fairy V2: A Multi-agent Mobile Assistant as Fast as RPA via Adaptive Task Template</h1>
   <p style="text-align: center">Anonymous authors</p>
   <img src="README/images/case.png" alt="logo" width="90%"/>
 </div>

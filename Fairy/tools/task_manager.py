@@ -24,7 +24,7 @@ class TaskManager(Worker):
         self.current_task = global_plan_info.current_sub_task
         await self.start_or_switch_app()
         await self.publish("app_channel", EventMessage(EventType.Task_CREATED,
-            InstructionInfo(self.current_task['instruction'], global_plan_info.ins_language, self.current_task['key_info_request'])
+            InstructionInfo(self.current_task['instruction'], global_plan_info.ins_language, self.current_task['app_package_name'], self.current_task['key_info_request'])
         ))
 
 

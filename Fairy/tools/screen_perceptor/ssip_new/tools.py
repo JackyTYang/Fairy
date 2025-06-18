@@ -1,0 +1,79 @@
+from PIL import Image, ImageDraw, ImageFont
+import numpy as np
+
+# 在图像上绘制透明矩形框，并在左上角显示标记编号
+def draw_transparent_boxes_with_labels(
+    image_input,
+    boxes_dict,
+    box_color=(255, 0, 0, 180),
+    text_color=(255, 255, 255, 255),
+    font_size=40,
+    font_box_padding=10,
+    line_width=10,
+    font_path=None
+):
+    if isinstance(image_input, np.ndarray):
+        image = Image.fromarray(image_input).convert("RGBA")
+    else:
+        image = image_input.convert("RGBA")
+
+    try:
+        font = ImageFont.truetype(font_path or "arial.ttf", font_size)
+    except:
+        font = ImageFont.load_default()
+
+    result = image.copy()
+
+    for label, coords in boxes_dict.items(): # 遍历每一个框，label是框的编号0、1、2...
+        (x1, y1), (x2, y2) = coords
+
+        # 计算区域范围（考虑线宽和标签）
+        text = str(label)
+        temp_draw = ImageDraw.Draw(Image.new("RGBA", result.size))
+        text_bbox = temp_draw.textbbox((0, 0), text, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
+        bg_rect = [x1, y1, x1 + text_width + font_box_padding * 2, y1 + text_height + font_box_padding * 2]
+
+        min_x = min(x1 - line_width, bg_rect[0])
+        min_y = min(y1 - line_width, bg_rect[1])
+        max_x = max(x2 + line_width, bg_rect[2])
+        max_y = max(y2 + line_width, bg_rect[3])
+
+        # 从原图中提取这个区域的背景
+        background_crop = image.crop((min_x, min_y, max_x, max_y))
+
+        # 在提取的背景上画框和标签
+        overlay = Image.new("RGBA", background_crop.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+
+        # 框
+        draw.rectangle(
+            [x1 - min_x, y1 - min_y, x2 - min_x, y2 - min_y],
+            outline=box_color,
+            width=line_width
+        )
+
+        # 标签背景
+        draw.rectangle(
+            [
+                bg_rect[0] - min_x,
+                bg_rect[1] - min_y,
+                bg_rect[2] - min_x,
+                bg_rect[3] - min_y
+            ],
+            fill=(0, 0, 0, 160)
+        )
+
+        # 文字
+        text_x = bg_rect[0] - min_x + font_box_padding
+        text_y = bg_rect[1] - min_y + font_box_padding
+        draw.text((text_x, text_y), text, fill=text_color, font=font)
+
+        # 合成 overlay 到 background_crop
+        composed_crop = Image.alpha_composite(background_crop, overlay)
+
+        # 最终贴回 result
+        result.paste(composed_crop, (min_x, min_y))
+
+    return result

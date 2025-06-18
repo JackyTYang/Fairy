@@ -19,11 +19,14 @@ class ScreenFileInfo:
 
     def get_screenshot_filename(self, no_type: bool = False) -> str:
         return (f"{self.file_name}_"
-                f"{str(self.file_build_timestamp)}{'' if self.file_extra_name is None else self.file_extra_name}"
+                f"{str(self.file_build_timestamp)}{'' if self.file_extra_name is None else f'_{self.file_extra_name}'}"
                 f"{''if no_type else f'.{self.file_type}'}")
 
     def get_screenshot_fullpath(self):
         return f"{self.file_path}/{self.get_screenshot_filename()}"
+
+    def get_screenshot_PILImage_file(self):
+        return PILImage.open(self.get_screenshot_fullpath())
 
     def get_screenshot_Image_file(self):
         return Image(PILImage.open(self.get_screenshot_fullpath()))

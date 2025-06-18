@@ -39,7 +39,7 @@ class VisualDescriptionGenerator:
         return {i: result for i, result in enumerate(results)}
 
     def _image_split(self, screenshot_file, image_coordinates_list):
-        image = screenshot_file.get_screenshot_Image_file().image # PILImage
+        image = screenshot_file.get_screenshot_PILImage_file() # PILImage
         # 保存分割图像的列表
         cropped_images = []
         for coordinates in image_coordinates_list:

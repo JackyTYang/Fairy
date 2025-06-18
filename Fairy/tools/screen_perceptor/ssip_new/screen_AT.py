@@ -4,9 +4,12 @@ import xmltodict
 import re
 
 class ScreenAccessibilityTree:
-    def __init__(self, at_xml: str):
+    def __init__(self, at_xml: str, only_app: bool = False):
         at_dict_raw = xmltodict.parse(at_xml)['hierarchy']['node']
-        self.at_dict = [self._node_info_collector(at_node) for at_node in at_dict_raw]
+        if only_app:
+            self.at_dict = [self._node_info_collector(at_dict_raw[1])] # [0]节点为手机系统栏(状态栏) [1]节点是手机应用的根节点
+        else:
+            self.at_dict = [self._node_info_collector(at_node) for at_node in at_dict_raw]
 
     def _node_info_collector(self, at_node):
         at_node_info = {}
@@ -33,7 +36,7 @@ class ScreenAccessibilityTree:
         ]
 
         # 收集文本信息
-        at_node_info['text'] = at_node.get('@text', None)
+        at_node_info['text'] = at_node.get('@text', None).replace("\n","")
 
         # 递归处理子节点
         at_node_info['children'] = []
@@ -78,13 +81,72 @@ class ScreenAccessibilityTree:
 
         self.at_dict = [self._common_filter(at_node, _need_visual_filter) for at_node in self.at_dict]
 
-    def get_page_description(self):
+    def get_nodes_clickable(self, set_mark=False):
+        index = 0
+        node_bounds_list = {}
+        def _clickable_filter(node):
+            nonlocal index
+            if "clickable" in node['properties']:
+                if set_mark:
+                    node["mark"] = index
+                node_bounds_list[index] = node["bounds"]
+                index = index + 1
+            return node
+
+        self.at_dict = [self._common_filter(at_node, _clickable_filter) for at_node in self.at_dict]
+        return node_bounds_list
+
+    async def _summarize_clickable_nodes(self, at_node, summarize_text_func):
+        # 检查节点是否包含 'clickable' 属性
+        def _is_node_clickable(node):
+            return ('properties' in node and "clickable" in node['properties']) or ('merged-properties' in node and any('clickable' in props for props in node['merged-properties']))
+
+        # 用于递归移除所有不包含 'clickable' 属性，且其所有子孙节点都不包含 'clickable' 的节点。
+        def _prune_non_clickable(node):
+            if 'children' not in node or len(node['children']) == 0: # 终止条件：没有 children
+                return node if _is_node_clickable(node) else None
+            pruned_children = []
+            for child in node['children']:
+                if _is_node_clickable(child):
+                    pruned_children.append(child) # 子节点可以点击则不处理
+                else:
+                    pruned_child = _prune_non_clickable(child) # 递归处理子节点
+                    if pruned_child is not None:
+                        pruned_children.append(pruned_child)
+            node['children'] = pruned_children
+            if pruned_children or _is_node_clickable(node): # 当前节点是否保留
+                return node
+            return None
+        # 遍历所有clickable节点
+        node_successor_list = []
+        def _clickable_filter(node):
+            if _is_node_clickable(node):
+                node_successor_list.append(deepcopy(node["children"]) if 'children' in node else [])
+                node = _prune_non_clickable(node)  # 移除其下所有不包含 'clickable' 属性的节点
+            return node
+        at_node = self._common_filter(at_node, _clickable_filter)
+        # 总结节点
+        summarized_text_map = await summarize_text_func(node_successor_list)
+        # 二次遍历所有clickable节点，添加总结
+        index = 0
+        def _clickable_filter(node):
+            nonlocal index
+            if _is_node_clickable(node):
+                if summarized_text_map[index] is not None:
+                    node["text"] = summarized_text_map[index]
+                index = index + 1
+            return node
+        at_node = self._common_filter(at_node, _clickable_filter)
+        return at_node
+
+    async def get_page_description(self, summarize_text_func=None):
         page_desc = []
         for at_node in self.at_dict:
             at_node = self._common_filter(at_node, self._coordinate_filter)
             at_node = self._common_filter(at_node, self._redundant_info_filter)
             at_node = self._struct_compress(at_node)
-            print(at_node)
+            if summarize_text_func is not None:
+                at_node = await self._summarize_clickable_nodes(at_node, summarize_text_func)
             page_desc.append("\n".join(self._format_ui_tree(at_node)))
         return page_desc
 
@@ -177,9 +239,10 @@ class ScreenAccessibilityTree:
 
         return lines
 
-    # [生成页面描述时] 非可点击元素无需提供坐标信息
+    # [生成页面描述时] 非可点击/滚动的元素无需提供坐标信息
     @staticmethod
     def _coordinate_filter(node):
+        # if not any(k in node['properties'] for k in ('clickable', 'long-clickable', 'scrollable')):
         if 'clickable' not in node['properties'] and 'long-clickable' not in node['properties']:
             del node['bounds']
             del node['center']
@@ -211,10 +274,3 @@ class ScreenAccessibilityTree:
         if len(node['children']) == 0 :
             del node['children']
         return node
-
-
-if __name__ == '__main__':
-    with open("E.xml", "r", encoding="utf-8") as f:
-        content = f.read()  # 读取整个文件为字符串
-    at = ScreenAccessibilityTree(content)
-    print(at.get_page_description())

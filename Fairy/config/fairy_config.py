@@ -20,11 +20,12 @@ class ScreenPerceptionType(Enum):
 
 class FairyConfig:
     def __init__(self,
-                 model: CoreChatModelConfig,
-                 rag_model: RAGChatModelConfig,
-                 rag_embed_model: RAGEmbedModelConfig,
-                 visual_prompt_model: ModelConfig,
-                 adb_path,
+                 model: CoreChatModelConfig | None,
+                 rag_model: RAGChatModelConfig | None,
+                 rag_embed_model: RAGEmbedModelConfig | None,
+                 visual_prompt_model: ModelConfig | None,
+                 text_summarization_model: ModelConfig | None,
+                 adb_path: str | None,
                  temp_path=None,
                  screenshot_phone_path=None,
                  screenshot_filename=None,
@@ -34,14 +35,14 @@ class FairyConfig:
                  non_visual_mode: bool=False,
                  interaction_mode: InteractionMode=InteractionMode.Dialog,
                  manual_collect_app_info: bool=False,
-                 reflection_policy: str='hybrid',
-                 ):
+                 reflection_policy: str='hybrid'):
 
-        self.model_client = model.build()
-        self.rag_model_client = rag_model.build()
-        self.rag_embed_model_client = rag_embed_model.build()
+        self.model_client = model.build() if model else None
+        self.rag_model_client = rag_model.build() if rag_model else None
+        self.rag_embed_model_client = rag_embed_model.build() if rag_embed_model else None
 
         self.visual_prompt_model_config = visual_prompt_model
+        self.text_summarization_model_config = text_summarization_model
 
         self._adb_path = adb_path
         self.device = None
@@ -106,6 +107,11 @@ class FairyEnvConfig(FairyConfig):
                           ),
                           rag_embed_model=RAGEmbedModelConfig(
                               model_name=os.getenv("RAG_EMBED_MODEL_NAME")
+                          ),
+                          text_summarization_model=ModelConfig(
+                              model_name=os.getenv("TEXT_SUMMARIZATION_LLM_API_NAME"),
+                              api_base=os.getenv("TEXT_SUMMARIZATION_LLM_API_BASE"),
+                              api_key=os.getenv("TEXT_SUMMARIZATION_LLM_API_KEY")
                           ),
                           visual_prompt_model=ModelConfig(
                               model_name=os.getenv("VISUAL_PROMPT_LMM_API_NAME"),

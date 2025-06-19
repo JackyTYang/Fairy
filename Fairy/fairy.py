@@ -43,7 +43,7 @@ class FairyCore:
                         devices.append(device_str.split("\t")[0])
                 return devices
 
-        device_list = await TaskExecutor("Get_Screenshot", None).run(_get_device)
+        device_list = await TaskExecutor("Get_Device", None).run(_get_device)
         print(device_list)
         if len(device_list) == 0:
             raise Exception("No device found.")

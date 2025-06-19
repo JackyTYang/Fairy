@@ -3,13 +3,26 @@ from copy import deepcopy
 import xmltodict
 import re
 
+from loguru import logger
+
+
 class ScreenAccessibilityTree:
-    def __init__(self, at_xml: str, only_app: bool = False):
-        at_dict_raw = xmltodict.parse(at_xml)['hierarchy']['node']
-        if only_app:
-            self.at_dict = [self._node_info_collector(at_dict_raw[1])] # [0]节点为手机系统栏(状态栏) [1]节点是手机应用的根节点
-        else:
-            self.at_dict = [self._node_info_collector(at_node) for at_node in at_dict_raw]
+    def __init__(self, at_xml: str, target_app: None):
+        self.at_xml_raw = at_xml
+        self.at_dict_raw = xmltodict.parse(self.at_xml_raw)['hierarchy']['node']
+        self.at_dict = []
+        for at_node in self.at_dict_raw:
+            if target_app is not None:
+                if '@package' in at_node and at_node['@package'] == target_app :
+                    self.at_dict.append(self._node_info_collector(at_node))
+                else:
+                    logger.bind(log_tag="fairy_sys").info(
+                        f"[Screen Perception] The nodes of package {at_node['@package']} have been ignored because the app package was specified!")
+            else:
+                self.at_dict.append(self._node_info_collector(at_node))
+        if len(self.at_dict) == 0:
+            logger.bind(log_tag="fairy_sys").warning(
+                f"[Screen Perception] The node specifying the app package {target_app} was not found in the screen.")
 
     def _node_info_collector(self, at_node):
         at_node_info = {}

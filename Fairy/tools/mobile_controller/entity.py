@@ -39,3 +39,6 @@ class MobileScreenshot:
 
     async def get_current_activity(self) -> ActivityInfo:
         ...
+
+    async def get_keyboard_activation_status(self) -> Tuple[str, bool]:
+        ...

@@ -3,7 +3,7 @@ import random
 from loguru import logger
 
 class ScreenPreceptionInfo:
-    def __init__(self, width, height, perception_infos, keyboard_status):
+    def __init__(self, width, height, perception_infos, keyboard_status=None):
         self.width = width
         self.height = height
         self.infos = perception_infos

@@ -5,7 +5,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from Fairy.config.model_config import ModelConfig
-from Fairy.info_entity import ScreenFileInfo
+from Fairy.entity.info_entity import ScreenFileInfo
 from Fairy.tools.screen_perceptor.ssip_new.perceptor import ScreenStructuredInfoPerception
 
 load_dotenv(dotenv_path=Path('../../.env'))

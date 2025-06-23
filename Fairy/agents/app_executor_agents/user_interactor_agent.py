@@ -9,10 +9,11 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.config.fairy_config import FairyConfig
-from Fairy.info_entity import PlanInfo, ScreenInfo, UserInteractionInfo
+from Fairy.entity.info_entity import PlanInfo, ScreenInfo, UserInteractionInfo
+from Fairy.entity.log_template import LogTemplate, WorkerType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
-from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, CallType
+from Fairy.entity.message_entity import EventMessage, CallMessage
+from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
 
 
 class UserInteractorAgent(Agent):
@@ -23,21 +24,23 @@ class UserInteractorAgent(Agent):
         super().__init__(runtime, "UserInteractorAgent", config.model_client, system_messages)
         self.non_visual_mode = config.non_visual_mode
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.Plan_DONE)
+    @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
+              listen_filter=lambda msg: msg.match(EventType.Plan, EventStatus.DONE))
     async def on_user_interact(self, message: EventMessage, message_context):
         if str(message.event_content.user_interaction_type) != "0":
             await self._on_user_interact(message, message_context)
         else:
-            logger.bind(log_tag="fairy_sys").info("[Interact With User] No user interaction required, skipped")
+            logger.bind(log_tag="fairy_sys").warning(LogTemplate["worker_skip"](WorkerType.Agent, self.name, "No user interaction required"))
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.UserChat_DONE)
+    @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
+              listen_filter=lambda msg: msg.match(EventType.UserChat, EventStatus.DONE))
     async def on_user_interact_reflect(self, message: EventMessage, message_context):
         await self._on_user_interact(message, message_context)
 
     async def _on_user_interact(self, message: EventMessage, message_context):
-        logger.bind(log_tag="fairy_sys").info("[Interact With User] TASK in progress...")
+        # 发布UserInteraction CREATED事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.UserInteraction, EventStatus.CREATED))
+        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Agent, self.name))
 
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, StartScreenPerception)\Historical Action Memory (Action, ActionResult)\KeyInfo
         memory = await (await self.call(
@@ -72,18 +75,9 @@ class UserInteractorAgent(Agent):
             images=images,
         )
 
-        if interactor_event_content.interaction_status == "A":
-            await self.publish("app_channel", EventMessage(EventType.UserInteraction_DONE, interactor_event_content))
-        elif interactor_event_content.interaction_status == "B":
-            await self.publish("app_channel", EventMessage(EventType.UserChat_CREATED, interactor_event_content))
-        # elif interactor_event_content.interaction_status == "C":
-        #     await self.publish("app_channel", EventMessage(EventType.Task, EventStatus.CREATED, {
-        #         "instruction": interactor_event_content.action_instruction,
-        #         "thought": interactor_event_content.interaction_thought,
-        #         "task_name": "More Info Explore",
-        #         "source": "UserInteractorAgent"
-        #     }))
-        logger.bind(log_tag="fairy_sys").info("[Interact With User] TASK completed.")
+        # 发布UserInteraction Done事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.UserInteraction, EventStatus.DONE, interactor_event_content))
+        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Agent, self.name))
 
     @staticmethod
     def get_user_interaction_type_desc(user_interaction_type):

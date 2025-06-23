@@ -9,11 +9,12 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.config.fairy_config import FairyConfig
-from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
+from Fairy.entity.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
+from Fairy.entity.log_template import LogTemplate, WorkerType
 from Fairy.memory.long_time_memory_manager import LongMemoryCallType, LongMemoryType
 from Fairy.memory.short_time_memory_manager import ActionMemoryType, ShortMemoryCallType
-from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, CallType
+from Fairy.entity.message_entity import EventMessage, CallMessage
+from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
 from Fairy.tools.mobile_controller.action_type import ATOMIC_ACTION_SIGNITURES, AtomicActionType
 
 
@@ -25,15 +26,16 @@ class AppActionDeciderAgent(Agent):
         super().__init__(runtime, " AppActionDeciderAgent", config.model_client, system_messages)
         self.non_visual_mode = config.non_visual_mode
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.Plan_DONE)
+    @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
+              listen_filter=lambda msg: msg.match(EventType.Plan, EventStatus.DONE))
     async def on_execute_plan(self, message: EventMessage, message_context):
-
-        logger.bind(log_tag="fairy_sys").info("[Atomic Action Decision] TASK in progress...")
+        # 发布ActionDecision CREATED事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.ActionDecision, EventStatus.CREATED))
+        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Agent, self.name))
 
         # 如果当前Plan需要用户交互，则跳过
         if str(message.event_content.user_interaction_type) != "0":
-            logger.bind(log_tag="fairy_sys").info("[Atomic Action Decision] User interaction required, skipped")
+            logger.bind(log_tag="fairy_sys").warning(LogTemplate["worker_skip"](WorkerType.Agent, self.name, "User interaction required"))
             return
 
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, StartScreenPerception)\Historical Action Memory (Action, ActionResult)\KeyInfo
@@ -107,8 +109,9 @@ class AppActionDeciderAgent(Agent):
             images=images
         )
 
-        await self.publish("app_channel", EventMessage(EventType.ActionExecution_CREATED, event_content))
-        logger.bind(log_tag="fairy_sys").info("[Atomic Action Decision] TASK completed.")
+        # 发布ActionDecision Done事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.ActionDecision, EventStatus.DONE, event_content))
+        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_complete'](WorkerType.Agent, self.name))
 
     @staticmethod
     def build_prompt(instruction,

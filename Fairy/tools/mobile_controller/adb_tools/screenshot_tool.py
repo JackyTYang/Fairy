@@ -4,7 +4,7 @@ import subprocess
 
 from loguru import logger
 
-from Fairy.info_entity import ScreenFileInfo, ActivityInfo
+from Fairy.entity.info_entity import ScreenFileInfo, ActivityInfo
 from Fairy.tools.mobile_controller.entity import MobileScreenshot
 from Fairy.utils.task_executor import TaskExecutor
 

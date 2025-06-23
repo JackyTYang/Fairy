@@ -1,14 +1,12 @@
-from pathlib import Path
-
-from PIL import Image, ImageTk
 from loguru import logger
 
 from Citlali.core.agent import Worker
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Fairy.config.fairy_config import FairyConfig, InteractionMode
-from Fairy.message_entity import EventMessage
-from Fairy.type import EventType
+from Fairy.entity.log_template import WorkerType, LogTemplate
+from Fairy.entity.message_entity import EventMessage
+from Fairy.entity.type import EventType, EventChannel, EventStatus
 import tkinter as tk
 
 
@@ -17,10 +15,19 @@ class UserChat(Worker):
         super().__init__(runtime, "UserChat", "UserChat")
         self.interaction_mode = config.interaction_mode
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.UserChat_CREATED)
-    async def on_action_create(self, message: EventMessage, message_context):
-        logger.bind(log_tag="fairy_sys").debug("Interacting with the user for further instruction...")
+    @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
+              listen_filter=lambda msg: msg.match(EventType.UserInteraction, EventStatus.DONE))
+    async def on_user_chat(self, message: EventMessage, message_context):
+        if message.event_content.interaction_status == "B":
+            await self.do_user_chat(message, message_context)
+        else:
+            logger.bind(log_tag="fairy_sys").warning(LogTemplate["worker_skip"](WorkerType.Tool, self.name, "No user chat required"))
+            return
+
+    async def do_user_chat(self, message: EventMessage, message_context):
+        # 发布UserChat CREATED事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.UserChat, EventStatus.CREATED))
+        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Tool, self.name))
 
         title_prompt_words = f"Fairy需要与您沟通以完成后续操作\nFairy will need to communicate with you to complete the follow up action"
 
@@ -36,7 +43,9 @@ class UserChat(Worker):
         logger.bind(log_tag="fairy_sys").debug(f"Further instructions have been obtained. Instruction：{user_response}")
 
         message.event_content.response = user_response
-        await self.publish("app_channel", EventMessage(EventType.UserChat_DONE, message.event_content))
+        # 发布UserChat Done事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.UserChat, EventStatus.DONE, message.event_content))
+        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_complete'](WorkerType.Tool, self.name))
 
     @staticmethod
     def ask_fairy_interaction(title_prompt_words: str, prompt_words: str) -> str:

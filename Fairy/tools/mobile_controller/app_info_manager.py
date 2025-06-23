@@ -10,9 +10,9 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.config.fairy_config import FairyConfig
-from Fairy.message_entity import EventMessage, CallMessage
+from Fairy.entity.message_entity import EventMessage, CallMessage
 from Fairy.tools.mobile_controller.action_type import AtomicActionType
-from Fairy.type import CallType
+from Fairy.entity.type import CallType
 from google_play_scraper import app as get_app_info
 from google_play_scraper.exceptions import NotFoundError
 

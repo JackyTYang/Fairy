@@ -11,10 +11,11 @@ from Fairy.agents.app_executor_agents.app_planner_agent.planner_common import \
     replan_output_for_usr_chat, screen, replan_steps_for_usr_chat
 from Fairy.agents.prompt_common import output_json_object, ordered_list
 from Fairy.config.fairy_config import FairyConfig
-from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo, UserInteractionInfo
+from Fairy.entity.info_entity import PlanInfo, ProgressInfo, ScreenInfo, UserInteractionInfo
+from Fairy.entity.log_template import LogTemplate, WorkerType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
-from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, CallType
+from Fairy.entity.message_entity import EventMessage, CallMessage
+from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
 
 
 class AppRePlannerForUsrChatAgent(Agent):
@@ -27,10 +28,20 @@ class AppRePlannerForUsrChatAgent(Agent):
         self.instruction_tips = None
         self.non_visual_mode = config.non_visual_mode
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.UserInteraction_DONE)
+    @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
+              listen_filter=lambda msg: msg.match(EventType.UserInteraction, EventStatus.DONE))
     async def on_plan_after_user_interaction(self, message: EventMessage, message_context):
-        logger.bind(log_tag="fairy_sys").info("[Plan(UserInteraction)] TASK in progress...")
+        if message.event_content.interaction_status == "A":
+            await self.do_plan(message, message_context)
+        else:
+            logger.bind(log_tag="fairy_sys").warning(LogTemplate["worker_skip"](WorkerType.Agent, self.name, "User chat required"))
+            return
+
+    async def do_plan(self, message: EventMessage, message_context):
+        # 发布Plan CREATED事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Plan, EventStatus.CREATED))
+        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Agent, self.name))
+
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, StartScreenPerception)
         memory = await (await self.call(
             "ShortTimeMemoryManager",
@@ -57,8 +68,10 @@ class AppRePlannerForUsrChatAgent(Agent):
             ),
             images=images
         )
-        await self.publish("app_channel", EventMessage(EventType.Plan_DONE, plan_event_content))
-        logger.bind(log_tag="fairy_sys").info("[Plan(UserInteraction)] TASK completed.")
+
+        # 发布Plan Done事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Plan, EventStatus.DONE, plan_event_content))
+        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_complete'](WorkerType.Agent, self.name))
 
     def build_after_user_interaction_prompt(self,
                                             instruction,

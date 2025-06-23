@@ -8,8 +8,8 @@ from Citlali.core.runtime import CitlaliRuntime
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.config.model_config import RAGChatModelConfig, RAGEmbedModelConfig
 from Fairy.memory.long_time_memory_manager import LongTimeMemoryManager, LongMemoryCallType, LongMemoryType
-from Fairy.message_entity import CallMessage
-from Fairy.type import CallType
+from Fairy.entity.message_entity import CallMessage
+from Fairy.entity.type import CallType
 
 load_dotenv(dotenv_path=Path('../.env'))
 

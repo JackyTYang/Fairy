@@ -6,7 +6,7 @@ from .entity import FineGrainedVisualPerceptionInfo
 from .screen_icon_perception import ScreenIconPerception
 from .screen_text_perception import ScreenTextPerception
 from PIL import Image, ImageDraw
-from Fairy.info_entity import ScreenFileInfo
+from Fairy.entity.info_entity import ScreenFileInfo
 import logging
 logging.getLogger().setLevel(logging.WARNING)
 

@@ -8,7 +8,7 @@ from PIL import Image
 from openai import OpenAI
 
 from Fairy.config.model_config import ModelConfig
-from Fairy.info_entity import ScreenFileInfo
+from Fairy.entity.info_entity import ScreenFileInfo
 from Fairy.tools.screen_perceptor.ssip.compressXML import parse_bounds
 import xml.etree.ElementTree as ET
 

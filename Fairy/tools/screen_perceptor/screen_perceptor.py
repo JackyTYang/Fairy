@@ -3,10 +3,11 @@ from loguru import logger
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import Worker, listener
 from Fairy.config.fairy_config import MobileControllerType, ScreenPerceptionType, FairyConfig
+from Fairy.entity.log_template import WorkerType, LogTemplate
 from Fairy.tools.mobile_controller.adb_tools.screenshot_tool import AdbMobileScreenshot
 from Fairy.tools.mobile_controller.ui_automator_tools.screenshot_tool import UiAutomatorMobileScreenshot
-from Fairy.info_entity import ScreenInfo
-from Fairy.message_entity import EventMessage
+from Fairy.entity.info_entity import ScreenInfo
+from Fairy.entity.message_entity import EventMessage
 from Fairy.tools.screen_perceptor.ssip_new.perceptor import ScreenStructuredInfoPerception
 try:
     from Fairy.tools.screen_perceptor.fvp.perceptor import FineGrainedVisualPerceptor
@@ -15,7 +16,7 @@ except ImportError:
         "Additional dependencies are required to use FVP."
     )
     FineGrainedVisualPerceptor = None
-from Fairy.type import EventType
+from Fairy.entity.type import EventType, EventChannel, EventStatus
 
 
 class ScreenPerceptor(Worker):
@@ -35,18 +36,20 @@ class ScreenPerceptor(Worker):
         self.visual_prompt_model_config = config.visual_prompt_model_config
         self.text_summarization_model_config = config.text_summarization_model_config
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.ActionExecution_DONE)
+    @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
+              listen_filter=lambda msg: msg.match(EventType.ActionExecution, EventStatus.DONE))
     async def on_screen_percept(self, message: EventMessage, message_context):
         await self._on_screen_percept(message, message_context)
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.Task_CREATED)
+    @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
+              listen_filter=lambda msg: msg.match(EventType.Task, EventStatus.CREATED))
     async def on_first_screen_percept(self, message: EventMessage, message_context):
         await self._on_screen_percept(message, message_context)
 
     async def _on_screen_percept(self, message: EventMessage, message_context):
-        logger.bind(log_tag="fairy_sys").info("[Get Screenshot] and [Perception Information] Task in progress...")
+        # 发布ScreenPerception CREATED事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.ScreenPerception, EventStatus.CREATED))
+        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Tool, self.name))
 
         # 获取当前活动信息
         current_activity_info = await self.screenshot_tool.get_current_activity()
@@ -55,8 +58,9 @@ class ScreenPerceptor(Worker):
         screenshot_file_info, perception_infos = await self.get_screen_description()
         screen_info = ScreenInfo(screenshot_file_info, perception_infos, current_activity_info)
 
-        logger.bind(log_tag="fairy_sys").info("[Get Screenshot] and [Perception Information] Task completed.")
-        await self.publish("app_channel", EventMessage(EventType.ScreenPerception_DONE, screen_info))
+        # 发布ScreenPerception Done事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.ScreenPerception, EventStatus.DONE, message.event_content))
+        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_complete'](WorkerType.Tool, self.name))
 
     async def get_screen_description(self):
         # 获取屏幕截图信息和UI层次结构XML(AccessibilityTree)
@@ -81,3 +85,4 @@ class ScreenPerceptor(Worker):
 
         perception_infos.keyboard_status = get_keyboard_activation_status[1] # 设置键盘激活状态
         return screenshot_file_info, perception_infos
+

@@ -1,4 +1,4 @@
-from Fairy.info_entity import ScreenInfo
+from Fairy.entity.info_entity import ScreenInfo
 
 user_interaction_situation=[
     "1: The current sub-goal is sensitive or dangerous action and the user has not confirmed it in the 'Instruction'. E.g., file deletion when the user has not instructed file deletion.",

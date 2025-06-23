@@ -11,11 +11,12 @@ from Fairy.agents.app_executor_agents.app_planner_agent.planner_common import sc
     replan_output, plan_requirements
 from Fairy.agents.prompt_common import ordered_list, output_json_object, unordered_list
 from Fairy.config.fairy_config import FairyConfig
-from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo
+from Fairy.entity.info_entity import PlanInfo, ProgressInfo, ScreenInfo
+from Fairy.entity.log_template import LogTemplate, WorkerType
 from Fairy.memory.long_time_memory_manager import LongMemoryCallType, LongMemoryType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
-from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, CallType
+from Fairy.entity.message_entity import EventMessage, CallMessage
+from Fairy.entity.type import EventType, CallType, EventStatus, EventChannel
 
 
 class AppPlannerAgent(Agent):
@@ -27,7 +28,7 @@ class AppPlannerAgent(Agent):
         self.non_visual_mode = config.non_visual_mode
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.ScreenPerception_DONE)
+              listen_filter=lambda msg: msg.match(EventType.ScreenPerception, EventStatus.DONE))
     async def on_plan(self, message: EventMessage, message_context):
         memory = await (await self.call("ShortTimeMemoryManager",
             CallMessage(CallType.Memory_GET, {
@@ -37,10 +38,12 @@ class AppPlannerAgent(Agent):
         if memory[ShortMemoryCallType.GET_Is_INIT_MODE]:
             await self.do_plan_init(message, message_context)
         else:
-            logger.bind(log_tag="fairy_sys").warning("[Plan(INIT)] Plan already exists for task to be executed, skipped")
+            logger.bind(log_tag="fairy_sys").warning(LogTemplate["worker_skip"](WorkerType.Agent, self.name, "NOT required for the non-first-time initialization"))
 
     async def do_plan_init(self, message: EventMessage, message_context):
-        logger.bind(log_tag="fairy_sys").info("[Plan(INIT)] TASK in progress...")
+        # 发布Plan CREATED事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Plan, EventStatus.CREATED))
+        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Agent, self.name))
 
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (StartScreenPerception)
         memory = await (await self.call("ShortTimeMemoryManager",
@@ -75,10 +78,9 @@ class AppPlannerAgent(Agent):
             ),
             images=images
         )
-        # 发布Plan事件
-        await self.publish("app_channel", EventMessage(EventType.Plan_DONE, plan_event_content))
-        logger.bind(log_tag="fairy_sys").info("[Plan(INIT)] TASK completed.")
-
+        # 发布Plan DONE事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Plan, EventStatus.DONE, plan_event_content))
+        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_complete'](WorkerType.Agent, self.name))
 
     def build_init_prompt(self, instruction, current_screen_perception_info: ScreenInfo, tips) -> str:
         prompt = f"---\n"\

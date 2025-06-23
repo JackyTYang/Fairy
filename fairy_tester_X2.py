@@ -6,10 +6,10 @@ from Fairy.agents.global_planner_agents.global_planner_agent import GlobalPlanne
 from Fairy.config.model_config import CoreChatModelConfig, RAGChatModelConfig, RAGEmbedModelConfig
 from Fairy.fairy import FairyCore
 from Fairy.config.fairy_config import FairyConfig
-from Fairy.message_entity import EventMessage
+from Fairy.entity.message_entity import EventMessage
 from Fairy.tools.mobile_controller.action_executor import ActionExecutor
 from Fairy.tools.mobile_controller.app_info_manager import AppInfoManager
-from Fairy.type import EventType
+from Fairy.entity.type import EventType
 
 ADB_PATH = "C:/Users/neosunjz/AppData/Local/Android/Sdk/platform-tools/adb.exe"
 

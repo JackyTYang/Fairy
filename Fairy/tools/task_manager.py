@@ -2,11 +2,11 @@ from loguru import logger
 
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener, Worker
-from Fairy.info_entity import UserInteractionInfo, GlobalPlanInfo, InstructionInfo
-from Fairy.memory.short_time_memory_manager import MemoryType, ShortMemoryCallType
-from Fairy.message_entity import EventMessage, CallMessage
+from Fairy.entity.info_entity import GlobalPlanInfo, InstructionInfo
+from Fairy.entity.log_template import LogTemplate, WorkerType
+from Fairy.entity.message_entity import EventMessage, CallMessage
 from Fairy.tools.mobile_controller.action_type import AtomicActionType
-from Fairy.type import EventType, CallType
+from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
 
 
 class TaskManager(Worker):
@@ -17,15 +17,26 @@ class TaskManager(Worker):
         self.finished_task_list = []
 
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda message: message.event == EventType.GlobalPlan_DONE)
+    @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.GLOBAL_CHANNEL,
+              listen_filter=lambda msg: msg.match(EventType.Plan, EventStatus.DONE))
     async def on_task_create(self, message: EventMessage, message_context):
+        # GLOBAL_CHANNEL发布Task CREATE事件 & 记录日志
+        await self.publish(EventChannel.GLOBAL_CHANNEL, EventMessage(EventType.Task, EventStatus.CREATED, instruction_info))
+        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Tool, self.name))
+
         global_plan_info: GlobalPlanInfo = message.event_content
         self.current_task = global_plan_info.current_sub_task
         await self.start_or_switch_app()
-        await self.publish("app_channel", EventMessage(EventType.Task_CREATED,
-            InstructionInfo(self.current_task['instruction'], global_plan_info.ins_language, self.current_task['app_package_name'], self.current_task['key_info_request'])
-        ))
+
+        instruction_info = InstructionInfo(
+            self.current_task['instruction'],
+            global_plan_info.ins_language,
+            self.current_task['app_package_name'],
+            self.current_task['key_info_request']
+        )
+
+        # APP_CHANNEL发布Task CREATE事件
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Task, EventStatus.CREATED, instruction_info))
 
 
     async def start_or_switch_app(self):
@@ -37,10 +48,12 @@ class TaskManager(Worker):
             })
         ))
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.Task_DONE)
+    @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
+              listen_filter=lambda msg: msg.match(EventType.Task, EventStatus.DONE))
     async def on_task_finish(self, message: EventMessage, message_context):
-        ...
+        # GLOBAL_CHANNEL发布Task DONE事件 & 记录日志
+        await self.publish(EventChannel.GLOBAL_CHANNEL, EventMessage(EventType.Task, EventStatus.DONE, message))
+        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_complete'](WorkerType.Tool, self.name))
 
     # @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
     #           listen_filter=lambda msg: msg.event == EventType.TaskFinish and msg.status == EventStatus.CREATED)

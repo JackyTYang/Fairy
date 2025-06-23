@@ -3,7 +3,7 @@ import re
 
 from loguru import logger
 
-from Fairy.info_entity import ScreenFileInfo, ActivityInfo
+from Fairy.entity.info_entity import ScreenFileInfo, ActivityInfo
 import uiautomator2 as u2
 
 from Fairy.tools.mobile_controller.entity import MobileScreenshot

@@ -7,11 +7,11 @@ from dotenv import load_dotenv
 from Citlali.core.runtime import CitlaliRuntime
 from Fairy.config.fairy_config import FairyConfig, MobileControllerType, ScreenPerceptionType
 from Fairy.config.model_config import ModelConfig
-from Fairy.message_entity import EventMessage
+from Fairy.entity.message_entity import EventMessage
 from Fairy.tools.screen_perceptor.screen_perceptor import ScreenPerceptor
 from pathlib import Path
 
-from Fairy.type import EventType
+from Fairy.entity.type import EventType
 
 load_dotenv(dotenv_path=Path('../.env'))
 

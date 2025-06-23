@@ -18,13 +18,13 @@ from Fairy.agents.global_planner_agents.global_replanner_agent import GlobalRePl
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.memory.long_time_memory_manager import LongTimeMemoryManager
 from Fairy.memory.short_time_memory_manager import ShortTimeMemoryManager
-from Fairy.message_entity import EventMessage
+from Fairy.entity.message_entity import EventMessage
 from Fairy.tools.mobile_controller.action_executor import ActionExecutor
 from Fairy.tools.mobile_controller.app_info_manager import AppInfoManager
 from Fairy.tools.screen_perceptor.screen_perceptor import ScreenPerceptor
 from Fairy.tools.task_manager import TaskManager
 from Fairy.tools.user_chat import UserChat
-from Fairy.type import EventType
+from Fairy.entity.type import EventType, EventStatus
 from Fairy.utils.task_executor import TaskExecutor
 
 class FairyCore:
@@ -109,7 +109,7 @@ class FairyCore:
         runtime.register(lambda: LongTimeMemoryManager(runtime, self._config))
 
         runtime.register(lambda: TaskManager(runtime))
-        await runtime.publish("app_channel", EventMessage(EventType.GlobalPlan_CREATED, {
+        await runtime.publish("app_channel", EventMessage(EventType.INIT, EventStatus.CREATED, {
             "user_instruction": instruction
         }))
         await runtime.stop()

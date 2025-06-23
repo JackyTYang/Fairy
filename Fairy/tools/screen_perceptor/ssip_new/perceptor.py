@@ -1,10 +1,8 @@
-import asyncio
 from copy import deepcopy
 
 from loguru import logger
 
-from Fairy.config.model_config import ModelConfig
-from Fairy.info_entity import ScreenFileInfo
+from Fairy.entity.info_entity import ScreenFileInfo
 from Fairy.tools.screen_perceptor.ssip_new.entity import SSIPInfo
 from Fairy.tools.screen_perceptor.ssip_new.llm_tools.text_summarizer import TextSummarizer
 from Fairy.tools.screen_perceptor.ssip_new.tools import draw_transparent_boxes_with_labels

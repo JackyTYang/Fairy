@@ -1,6 +1,6 @@
 from PIL import Image
 
-from Fairy.info_entity import ScreenFileInfo
+from Fairy.entity.info_entity import ScreenFileInfo
 from .compressXML import get_compress_xml
 from .compressXML import is_keyboard_active
 from .entity import AdaptiveSemanticScreenModelingInfo

@@ -3,7 +3,7 @@ from typing import List, Dict, Tuple
 
 from loguru import logger
 
-from Fairy.info_entity import ScreenFileInfo, ActivityInfo
+from Fairy.entity.info_entity import ScreenFileInfo, ActivityInfo
 from Fairy.tools.mobile_controller.action_type import AtomicActionType
 
 

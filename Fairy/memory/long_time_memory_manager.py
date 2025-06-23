@@ -8,8 +8,8 @@ from loguru import logger
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import Worker, listener
 from Fairy.config.fairy_config import FairyConfig
-from Fairy.message_entity import CallMessage
-from Fairy.type import CallType
+from Fairy.entity.message_entity import CallMessage
+from Fairy.entity.type import CallType
 
 class LongMemoryCallType(Enum):
     GET_Tips = 1

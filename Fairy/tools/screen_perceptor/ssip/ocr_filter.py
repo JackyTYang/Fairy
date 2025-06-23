@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET
 from difflib import SequenceMatcher
 from PIL import Image
 from loguru import logger
-from Fairy.info_entity import ScreenFileInfo
+from Fairy.entity.info_entity import ScreenFileInfo
 from paddlex import create_pipeline
 
 

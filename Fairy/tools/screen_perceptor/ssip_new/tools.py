@@ -1,16 +1,18 @@
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 
-# 在图像上绘制透明矩形框，并在左上角显示标记编号
+# 在图像上绘制透明矩形框，并显示标记编号
 def draw_transparent_boxes_with_labels(
     image_input,
     boxes_dict,
+    label_position='top_left',
     box_color=(255, 0, 0, 180),
     text_color=(255, 255, 255, 255),
     font_size=40,
     font_box_padding=10,
+    font_box_background_color=(0, 0, 0, 160),
     line_width=10,
-    font_path=None
+    font_path=None,
 ):
     if isinstance(image_input, np.ndarray):
         image = Image.fromarray(image_input).convert("RGBA")
@@ -33,12 +35,23 @@ def draw_transparent_boxes_with_labels(
         text_bbox = temp_draw.textbbox((0, 0), text, font=font)
         text_width = text_bbox[2] - text_bbox[0]
         text_height = text_bbox[3] - text_bbox[1]
-        bg_rect = [x1, y1, x1 + text_width + font_box_padding * 2, y1 + text_height + font_box_padding * 2]
 
-        min_x = min(x1 - line_width, bg_rect[0])
-        min_y = min(y1 - line_width, bg_rect[1])
-        max_x = max(x2 + line_width, bg_rect[2])
-        max_y = max(y2 + line_width, bg_rect[3])
+        if label_position == 'top_right':
+            bg_x1 = x2 - text_width - font_box_padding * 2
+            bg_x2 = x2
+        elif label_position == 'top_left':
+            bg_x1 = x1
+            bg_x2 = x1 + text_width + font_box_padding * 2
+        else:
+            raise RuntimeError("Unsupported label position. Use 'top_left' or 'top_right'.")
+
+        bg_y1 = y1
+        bg_y2 = y1 + text_height + font_box_padding * 2
+
+        min_x = min(x1 - line_width, bg_x1)
+        min_y = min(y1 - line_width, bg_y1)
+        max_x = max(x2 + line_width, bg_x2)
+        max_y = max(y2 + line_width, bg_y2)
 
         # 从原图中提取这个区域的背景
         background_crop = image.crop((min_x, min_y, max_x, max_y))
@@ -56,18 +69,13 @@ def draw_transparent_boxes_with_labels(
 
         # 标签背景
         draw.rectangle(
-            [
-                bg_rect[0] - min_x,
-                bg_rect[1] - min_y,
-                bg_rect[2] - min_x,
-                bg_rect[3] - min_y
-            ],
-            fill=(0, 0, 0, 160)
+            [bg_x1 - min_x, bg_y1 - min_y, bg_x2 - min_x, bg_y2 - min_y],
+            fill=font_box_background_color
         )
 
         # 文字
-        text_x = bg_rect[0] - min_x + font_box_padding
-        text_y = bg_rect[1] - min_y + font_box_padding
+        text_x = bg_x1 - min_x + font_box_padding
+        text_y = bg_y1 - min_y + font_box_padding
         draw.text((text_x, text_y), text, fill=text_color, font=font)
 
         # 合成 overlay 到 background_crop

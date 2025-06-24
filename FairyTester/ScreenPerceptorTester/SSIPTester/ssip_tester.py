@@ -31,9 +31,11 @@ async def test_with_case_mcdonalds_1():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     screenshot_file_info = ScreenFileInfo(f"{current_dir}/test_case_mcdonalds","mcdonalds_app_case_1_screenshot","png", "1750128489")
 
-    perception_infos = await ssip.get_perception_infos(screenshot_file_info, ui_hierarchy_xml, target_app="com.mcdonalds.gma.cn", need_vision_desc=True)
-    print(perception_infos)
+    screenshot_file_info, ssip_infos = await ssip.get_perception_infos(screenshot_file_info, ui_hierarchy_xml, target_app="com.mcdonalds.gma.cn", non_visual_mode=False)
 
+    print(ssip_infos.mark_to_coordinate_mapping_conversion(23))
+    print(ssip_infos.mark_to_coordinate_mapping_conversion(4))
+    print(ssip_infos)
 
 
 if __name__ == '__main__':

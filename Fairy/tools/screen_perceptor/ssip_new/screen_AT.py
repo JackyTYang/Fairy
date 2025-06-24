@@ -94,20 +94,35 @@ class ScreenAccessibilityTree:
 
         self.at_dict = [self._common_filter(at_node, _need_visual_filter) for at_node in self.at_dict]
 
-    def get_nodes_clickable(self, set_mark=False):
+    def get_nodes_need_marked(self, set_mark=False):
         index = 0
-        node_bounds_list = {}
-        def _clickable_filter(node):
+        nodes_need_marked = {
+            "clickable": {
+                'node_bounds_list':{},
+                'node_center_list':{}
+            },
+            "scrollable": {
+                'node_bounds_list': {},
+                'node_center_list': {}
+            }
+        }
+        def _add_node(node, type):
             nonlocal index
-            if "clickable" in node['properties']:
-                if set_mark:
-                    node["mark"] = index
-                node_bounds_list[index] = node["bounds"]
-                index = index + 1
+            if set_mark: node["mark"] = index
+            nodes_need_marked[type]['node_bounds_list'][index] = node["bounds"]
+            nodes_need_marked[type]['node_center_list'][index] = node["center"]
+            index = index + 1
             return node
 
-        self.at_dict = [self._common_filter(at_node, _clickable_filter) for at_node in self.at_dict]
-        return node_bounds_list
+        def _clickable_and_scrollable_filter(node):
+            if "clickable" in node['properties']:
+                node = _add_node(node, "clickable")
+            elif "scrollable" in node['properties']:
+                node = _add_node(node, "scrollable")
+            return node
+
+        self.at_dict = [self._common_filter(at_node, _clickable_and_scrollable_filter) for at_node in self.at_dict]
+        return nodes_need_marked
 
     async def _summarize_clickable_nodes(self, at_node, summarize_text_func):
         # 检查节点是否包含 'clickable' 属性

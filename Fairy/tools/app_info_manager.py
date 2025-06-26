@@ -10,6 +10,7 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.config.fairy_config import FairyConfig
+from Fairy.entity.log_template import LogTemplate, LogEventType
 from Fairy.entity.message_entity import EventMessage, CallMessage
 from Fairy.tools.mobile_controller.action_type import AtomicActionType
 from Fairy.entity.type import CallType
@@ -22,6 +23,7 @@ class AppInfoManager(Agent):
             content="You are a helpful AI assistant for retrieving, collecting & summarizing App Information.",
             type="SystemMessage")]
         super().__init__(runtime, "AppInfoManager", config.model_client, system_messages)
+        self.log_t = LogTemplate(self)  # 日志模板
 
         self.manual_collect_app_info = config.manual_collect_app_info
         self.user_mobile_record_path = os.path.join(config.get_user_mobile_record_path(), "app_info.json")
@@ -29,7 +31,7 @@ class AppInfoManager(Agent):
 
     @listener(ListenerType.ON_CALLED, listen_filter=lambda message: message.call_type == CallType.App_Info_GET)
     async def get_app_info_list(self, message:EventMessage , message_context):
-        logger.bind(log_tag="fairy_sys").debug("[AppInfo Get] TASK in progress...")
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)("Action Info Collection"))
 
         current_package_list = await (await self.call(
             "ActionExecutor",
@@ -42,10 +44,10 @@ class AppInfoManager(Agent):
         new_app_list, removed_app_list = self.check_difference(current_package_list)
 
         if len(new_app_list) > 0:
-            logger.bind(log_tag="fairy_sys").debug(f"[AppInfo Get] New App List: {new_app_list}")
+            logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.Notice)(f"New App List: {new_app_list}"))
 
             if not self.manual_collect_app_info:
-                logger.bind(log_tag="fairy_sys").warning(f"[Applnfo Get] We use the Google App Store to obtain information about apps.Due to regulatory restrictions, apps that are widely used in some regions (e.g. China) may not be available in the Google Play Store, which will make the information unavailable. If you need to improve the results manually, please configure 'manual_collect_app_info' in FairyConfig to True．")
+                logger.bind(log_tag="fairy_sys").warning(self.log_t.log(LogEventType.Notice)(f"We use the Google App Store to obtain information about apps.Due to regulatory restrictions, apps that are widely used in some regions (e.g. China) may not be available in the Google Play Store, which will make the information unavailable. If you need to improve the results manually, please configure 'manual_collect_app_info' in FairyConfig to True．"))
 
                 new_app_list_with_google_info = []
                 for app_package_name in tqdm(new_app_list):
@@ -72,7 +74,7 @@ class AppInfoManager(Agent):
                     )
                 )
             else:
-                logger.bind(log_tag="fairy_sys").warning(f"[Applnfo Get] Please send the input of the Prompt shown next to LLM that has an internet search (Highly Recommended: ChatGPT 4o / DeepSeek V3 with Search Turned on). Then send the Prompt input shown next to any model that has a network search, and finally paste the model's output here.")
+                logger.bind(log_tag="fairy_sys").warning(self.log_t.log(LogEventType.Notice)(f"Please send the input of the Prompt shown next to LLM that has an internet search (Highly Recommended: ChatGPT 4o / DeepSeek V3 with Search Turned on). Then send the Prompt input shown next to any model that has a network search, and finally paste the model's output here."))
                 print(self.build_prompt(new_app_list))
                 llm_response = ""
                 while True:
@@ -88,7 +90,7 @@ class AppInfoManager(Agent):
                 }
 
         if len(removed_app_list) > 0:
-            logger.bind(log_tag="fairy_sys").debug(f"[AppInfo Get] Removed App List: {removed_app_list}")
+            logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.Notice)(f"Removed App List: {removed_app_list}"))
             for app_package_name in removed_app_list:
                 if self.app_info_list.get(app_package_name, None) is not None:
                     del self.app_info_list[app_package_name]
@@ -96,6 +98,7 @@ class AppInfoManager(Agent):
         if len(new_app_list) > 0 or len(removed_app_list) > 0:
             self.save_app_info_list()
 
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)("Action Info Collection"))
         return self.app_info_list
 
     def check_difference(self, current_package_list):

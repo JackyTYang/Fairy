@@ -33,8 +33,8 @@ async def test_with_case_mcdonalds_1():
 
     screenshot_file_info, ssip_infos = await ssip.get_perception_infos(screenshot_file_info, ui_hierarchy_xml, target_app="com.mcdonalds.gma.cn", non_visual_mode=False)
 
-    print(ssip_infos.mark_to_coordinate_mapping_conversion(23))
-    print(ssip_infos.mark_to_coordinate_mapping_conversion(4))
+    print(ssip_infos.convert_marks_to_coordinates(23))
+    print(ssip_infos.convert_marks_to_coordinates(4))
     print(ssip_infos)
 
 

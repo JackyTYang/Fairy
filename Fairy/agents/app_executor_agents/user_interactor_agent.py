@@ -10,7 +10,7 @@ from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.entity.info_entity import PlanInfo, ScreenInfo, UserInteractionInfo
-from Fairy.entity.log_template import LogTemplate, WorkerType
+from Fairy.entity.log_template import LogTemplate, LogEventType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.entity.message_entity import EventMessage, CallMessage
 from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
@@ -22,6 +22,8 @@ class UserInteractorAgent(Agent):
             content="You are a helpful AI assistant for operating mobile phones. Your goal is to interact with the user. Think as if you are a human user operating the phone.",
             type="SystemMessage")]
         super().__init__(runtime, "UserInteractorAgent", config.model_client, system_messages)
+        self.log_t = LogTemplate(self)  # 日志模板
+
         self.non_visual_mode = config.non_visual_mode
 
     @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
@@ -30,7 +32,7 @@ class UserInteractorAgent(Agent):
         if str(message.event_content.user_interaction_type) != "0":
             await self._on_user_interact(message, message_context)
         else:
-            logger.bind(log_tag="fairy_sys").warning(LogTemplate["worker_skip"](WorkerType.Agent, self.name, "No user interaction required"))
+            logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerSkip)("User Interaction", "No user interaction required."))
 
     @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
               listen_filter=lambda msg: msg.match(EventType.UserChat, EventStatus.DONE))
@@ -40,7 +42,7 @@ class UserInteractorAgent(Agent):
     async def _on_user_interact(self, message: EventMessage, message_context):
         # 发布UserInteraction CREATED事件 & 记录日志
         await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.UserInteraction, EventStatus.CREATED))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Agent, self.name))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)("User Interaction"))
 
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, StartScreenPerception)\Historical Action Memory (Action, ActionResult)\KeyInfo
         memory = await (await self.call(
@@ -64,7 +66,7 @@ class UserInteractorAgent(Agent):
         else:
             screenshot_prompt = "The following text description (e.g. JSON or XML) is converted from a screenshots of your phone to show the current state"
 
-        interactor_event_content = await self.request_llm(
+        user_interaction_info = await self.request_llm(
             self.build_init_prompt(instruction_memory.get_instruction(),
                                    instruction_memory.language,
                                    current_action_memory[ActionMemoryType.Plan],
@@ -75,9 +77,11 @@ class UserInteractorAgent(Agent):
             images=images,
         )
 
+        logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.IntermediateResult)("User interaction result", user_interaction_info))
+
         # 发布UserInteraction Done事件 & 记录日志
-        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.UserInteraction, EventStatus.DONE, interactor_event_content))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Agent, self.name))
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.UserInteraction, EventStatus.DONE, user_interaction_info))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)("User Interaction"))
 
     @staticmethod
     def get_user_interaction_type_desc(user_interaction_type):

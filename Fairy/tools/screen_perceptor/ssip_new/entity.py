@@ -1,12 +1,18 @@
-from ..entity import ScreenPreceptionInfo
+from ..entity import ScreenPerceptionInfo
 
 
-class SSIPInfo(ScreenPreceptionInfo):
+class SSIPInfo(ScreenPerceptionInfo):
     def __init__(self, width, height, perception_infos, non_visual_mode, SoM_mapping):
         self.non_visual_mode = non_visual_mode
         self.SoM_mapping = SoM_mapping
 
         super().__init__(width, height, perception_infos, use_set_of_marks_mapping=not self.non_visual_mode)
+
+    def _perception_infos_to_str(self):
+        return f"- Raw UI Hierarchy XML:\n"\
+               f"{self.infos[0]}\n\n" \
+               f"- Page Description:\n" \
+               f"{self.infos[1]}\n\n"
 
     def _keyboard_prompt(self, extra_suffix=None):
         prompt = f"- Keyboard Status {'for '+extra_suffix if extra_suffix else ''}: " \
@@ -14,7 +20,7 @@ class SSIPInfo(ScreenPreceptionInfo):
                  f"\n"
         return prompt
 
-    def mark_to_coordinate_mapping_conversion(self, mark):
+    def convert_marks_to_coordinates(self, mark):
         return self.SoM_mapping.get(mark, None)
 
     def get_screen_info_prompt(self, extra_suffix=None):

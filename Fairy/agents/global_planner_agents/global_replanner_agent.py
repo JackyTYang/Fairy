@@ -13,7 +13,7 @@ from Fairy.agents.global_planner_agents.global_planner_common import plan_steps,
 from Fairy.agents.prompt_common import ordered_list, output_json_object
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.entity.info_entity import GlobalPlanInfo, ActionInfo, ProgressInfo, PlanInfo, InstructionInfo
-from Fairy.entity.log_template import WorkerType, LogTemplate
+from Fairy.entity.log_template import WorkerType, LogTemplate, LogEventType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.entity.message_entity import EventMessage, CallMessage
 from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
@@ -25,13 +25,14 @@ class GlobalRePlannerAgent(Agent):
             content="You are a helpful AI assistant for operating mobile phones. Your goal is to take notes of important content relevant to the user's request.",
             type="SystemMessage")]
         super().__init__(runtime, "GlobalRePlannerAgent", config.model_client, system_messages)
+        self.log_t = LogTemplate(self)  # 日志模板
 
     @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.GLOBAL_CHANNEL,
               listen_filter=lambda msg: msg.match(EventType.Task, EventStatus.DONE))
     async def on_global_plan(self, message:EventMessage , message_context):
         # 发布Plan CREATED事件 & 记录日志
         await self.publish(EventChannel.GLOBAL_CHANNEL, EventMessage(EventType.Plan, EventStatus.CREATED))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Agent, self.name))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)("Global Re-Plan"))
 
         app_info_list = await (await self.call(
             "AppInfoManager",
@@ -68,6 +69,8 @@ class GlobalRePlannerAgent(Agent):
             )
         )
 
+        logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.IntermediateResult)("Global re-plan result", global_plan))
+
         global_plan.current_sub_task['instruction'] = await self.request_llm(
             self.build_prompt_for_subtask_instruction_extension(
                 global_plan.delivered_key_info,
@@ -76,9 +79,11 @@ class GlobalRePlannerAgent(Agent):
             parse_response_func=lambda response: response
         )
 
+        logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.IntermediateResult)("Subtask instruction extension result", global_plan.current_sub_task['instruction']))
+
         # 发布Plan Done事件 & 记录日志
         await self.publish(EventChannel.GLOBAL_CHANNEL, EventMessage(EventType.Plan, EventStatus.DONE, global_plan))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['task_complete'](WorkerType.Agent, self.name))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)("Global Re-Plan"))
 
 
     @staticmethod

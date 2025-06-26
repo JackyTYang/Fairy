@@ -8,11 +8,11 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.agents.app_executor_agents.app_planner_agent.reflector_common import old_and_new_screen_comparison, reflection_steps, \
-    reflection_output, is_finished_action
+    reflection_output
 from Fairy.agents.prompt_common import output_json_object, ordered_list
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.entity.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
-from Fairy.entity.log_template import WorkerType, LogTemplate
+from Fairy.entity.log_template import LogTemplate, LogEventType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.entity.message_entity import EventMessage, CallMessage
 from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
@@ -24,6 +24,7 @@ class AppReflectorAgent(Agent):
             content="You are part of a helpful AI assistant for operating mobile phones and your identity is a reflector. Your goal is to verify whether the last action produced the expected behavior, to keep track of the progress.",
             type="SystemMessage")]
         super().__init__(runtime, "AppReflectorAgent", config.model_client, system_messages)
+        self.log_t = LogTemplate(self)  # 日志模板
 
         self.non_visual_mode = config.non_visual_mode
         self.standalone_reflector_mode = config.reflection_policy == "standalone"
@@ -35,7 +36,7 @@ class AppReflectorAgent(Agent):
               listen_filter=lambda msg: msg.match(EventType.ScreenPerception, EventStatus.DONE))
     async def on_reflect(self, message: EventMessage, message_context):
         if not self.standalone_reflector_mode:
-            logger.bind(log_tag="fairy_sys").warning(LogTemplate["worker_skip"](WorkerType.Agent, self.name, "Configuration item 'selection_policy' is 'hybrid' mode"))
+            logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerSkip)("Action Reflection", "Configuration item 'selection_policy' is 'hybrid' mode"))
             return
 
         memory = await (await self.call("ShortTimeMemoryManager",
@@ -44,7 +45,7 @@ class AppReflectorAgent(Agent):
             })
         ))
         if memory[ShortMemoryCallType.GET_Is_INIT_MODE]:
-            logger.bind(log_tag="fairy_sys").warning(LogTemplate["worker_skip"](WorkerType.Agent, self.name, "NOT required for the first initialization"))
+            logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerSkip)("Action Reflection", "NOT required for the first initialization"))
             return
         else:
             await self.do_reflect(message, message_context)
@@ -52,7 +53,7 @@ class AppReflectorAgent(Agent):
     async def do_reflect(self, message: EventMessage, message_context):
         # 发布Reflection CREATED事件 & 记录日志
         await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Reflection, EventStatus.CREATED))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Agent, self.name))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)("Action Reflection"))
 
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, Action, StartScreenPerception, EndScreenPerception)\KeyInfo
         memory = await (await self.call(
@@ -73,7 +74,7 @@ class AppReflectorAgent(Agent):
             images.append(current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file())
             images.append(current_action_memory[ActionMemoryType.EndScreenPerception].screenshot_file_info.get_screenshot_Image_file())
 
-        reflection_event_content = await self.request_llm(
+        progress_info = await self.request_llm(
             self.build_prompt(
                 instruction_memory.get_instruction(),
                 current_action_memory[ActionMemoryType.Plan],
@@ -85,14 +86,11 @@ class AppReflectorAgent(Agent):
             images=images
         )
 
-        if is_finished_action(reflection_event_content, current_action_memory[ActionMemoryType.Action]):
-            # 发布Task DONE事件 & 记录日志
-            await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Task, EventStatus.DONE))
-            logger.bind(log_tag="fairy_sys").info(LogTemplate['task_complete']())
-        else:
-            # 发布Reflection DONE事件 & 记录日志
-            await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Reflection, EventStatus.DONE, reflection_event_content))
-            logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_complete'](WorkerType.Agent, self.name))
+        logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.IntermediateResult)("Reflection result", progress_info))
+
+        # 发布Reflection DONE事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL,EventMessage(EventType.Reflection, EventStatus.DONE, progress_info))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)("Action Reflection"))
 
     def build_prompt(self,
                      instruction,

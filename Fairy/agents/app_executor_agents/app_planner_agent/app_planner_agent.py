@@ -12,7 +12,7 @@ from Fairy.agents.app_executor_agents.app_planner_agent.planner_common import sc
 from Fairy.agents.prompt_common import ordered_list, output_json_object, unordered_list
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.entity.info_entity import PlanInfo, ProgressInfo, ScreenInfo
-from Fairy.entity.log_template import LogTemplate, WorkerType
+from Fairy.entity.log_template import LogTemplate, WorkerType, LogEventType
 from Fairy.memory.long_time_memory_manager import LongMemoryCallType, LongMemoryType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.entity.message_entity import EventMessage, CallMessage
@@ -25,6 +25,8 @@ class AppPlannerAgent(Agent):
             content="You are part of a helpful AI assistant for operating mobile phones and your identity is a planner. Your goal is to devise high-level plans to achieve the user's requests. Think as if you are a human user operating the phone, but if you are faced with uncertain options, you should actively interact with users.",
             type="SystemMessage")]
         super().__init__(runtime, "AppPlannerAgent", config.model_client, system_messages)
+        self.log_t = LogTemplate(self)  # 日志模板
+
         self.non_visual_mode = config.non_visual_mode
 
     @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
@@ -38,12 +40,12 @@ class AppPlannerAgent(Agent):
         if memory[ShortMemoryCallType.GET_Is_INIT_MODE]:
             await self.do_plan_init(message, message_context)
         else:
-            logger.bind(log_tag="fairy_sys").warning(LogTemplate["worker_skip"](WorkerType.Agent, self.name, "NOT required for the non-first-time initialization"))
+            logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerSkip)("Init Plan", "NOT required for the non-first-time initialization"))
 
     async def do_plan_init(self, message: EventMessage, message_context):
         # 发布Plan CREATED事件 & 记录日志
         await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Plan, EventStatus.CREATED))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Agent, self.name))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)("Init Plan"))
 
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (StartScreenPerception)
         memory = await (await self.call("ShortTimeMemoryManager",
@@ -59,7 +61,7 @@ class AppPlannerAgent(Agent):
         long_memory = await (await self.call("LongTimeMemoryManager",
             CallMessage(CallType.Memory_GET,{
                 LongMemoryCallType.GET_Tips: {
-                    LongMemoryType.Plan_Tips: {"query": instruction_memory, "app_package_name": instruction_memory.app_package_name}
+                    LongMemoryType.Plan_Tips: {"query": instruction_memory.get_instruction(), "app_package_name": instruction_memory.app_package_name}
                 }
             })
         ))
@@ -70,7 +72,7 @@ class AppPlannerAgent(Agent):
         if not self.non_visual_mode:
             images.append(current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file())
 
-        plan_event_content = await self.request_llm(
+        plan_info = await self.request_llm(
             self.build_init_prompt(
                 instruction_memory.get_instruction(),
                 current_action_memory[ActionMemoryType.StartScreenPerception],
@@ -78,9 +80,12 @@ class AppPlannerAgent(Agent):
             ),
             images=images
         )
+
+        logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.IntermediateResult)("Init plan result", plan_info))
+
         # 发布Plan DONE事件 & 记录日志
-        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Plan, EventStatus.DONE, plan_event_content))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_complete'](WorkerType.Agent, self.name))
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Plan, EventStatus.DONE, plan_info))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)("Init Plan"))
 
     def build_init_prompt(self, instruction, current_screen_perception_info: ScreenInfo, tips) -> str:
         prompt = f"---\n"\

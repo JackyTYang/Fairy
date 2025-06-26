@@ -4,6 +4,7 @@ from typing import List, Dict
 from Citlali.utils.image import Image
 from PIL import Image as PILImage
 from Fairy.tools.mobile_controller.action_type import AtomicActionType
+from Fairy.tools.screen_perceptor.entity import ScreenPerceptionInfo
 
 
 class ScreenFileInfo:
@@ -45,17 +46,17 @@ class ActivityInfo:
         self.window_id = window_id
 
 class ScreenInfo:
-    def __init__(self, screenshot_file_info: ScreenFileInfo, perception_infos, current_activity_info: ActivityInfo):
+    def __init__(self, screenshot_file_info: ScreenFileInfo, perception_infos: ScreenPerceptionInfo, current_activity_info: ActivityInfo):
         self.current_activity_info = current_activity_info
         self.screenshot_file_info = screenshot_file_info
         self.perception_infos = perception_infos
 
     def __str__(self):
-        return (f"\n -------------ScreenInfo-------------"
+        return (f"\n -------------Screen Info-------------"
                 f"\n - Package Name: {self.current_activity_info.package_name}"
                 f"\n - Activity: {self.current_activity_info.activity}"
                 f"\n - Perception Info: {self.perception_infos}"
-                f"\n -----------ScreenInfo END-----------")
+                f"\n -----------Screen Info END-----------")
 
 class PlanInfo:
     def __init__(self, plan_thought, overall_plan, current_sub_goal, user_interaction_type, user_interaction_thought):
@@ -66,13 +67,13 @@ class PlanInfo:
         self.user_interaction_thought = user_interaction_thought
 
     def __str__(self):
-        return (f"\n -------------PlanInfo-------------"
-                f"\n - Plan Thought:{self.plan_thought}"
+        return (f"\n -------------Plan Info-------------"
+                f"\n - Plan Thought: {self.plan_thought}"
                 f"\n - Plan: {self.overall_plan}"
                 f"\n - Current Sub Goal: {self.current_sub_goal}"
                 f"\n - User Interaction Type: {self.user_interaction_type}"
                 f"\n - User Interaction Thought: {self.user_interaction_thought}"
-                f"\n -----------PlanInfo END-----------")
+                f"\n -----------Plan Info END-----------")
 
 class GlobalPlanInfo:
     def __init__(self, global_plan_thought, global_plan, current_sub_task, ins_language, delivered_key_info=None, previously_execution_result=None):
@@ -84,14 +85,14 @@ class GlobalPlanInfo:
         self.previously_execution_result = previously_execution_result
 
     def __str__(self):
-        return (f"\n -------------GlobalPlanInfo-------------"
+        return (f"\n -------------Global Plan Info-------------"
                 f"\n - Previous Execution Result:{'No Previous Execution' if self.previously_execution_result is None else self.previously_execution_result}"
-                f"\n - Global Plan Thought:{self.global_plan_thought}"
+                f"\n - Global Plan Thought: {self.global_plan_thought}"
                 f"\n - Global Plan: {self.global_plan}"
                 f"\n - Current Sub Task: {self.current_sub_task}"
                 f"\n - Ins Language: {self.ins_language}"
                 f"\n - Delivered Key Info: {self.delivered_key_info}"
-                f"\n -----------GlobalPlanInfo END-----------")
+                f"\n -----------Global Plan Info END-----------")
 
 class ActionInfo:
     def __init__(self, action_thought, actions:List[Dict[str, AtomicActionType | dict]], action_expectation, user_interaction_thought: str):
@@ -101,12 +102,12 @@ class ActionInfo:
         self.user_interaction_thought = user_interaction_thought
 
     def __str__(self):
-        return (f"\n -------------ActionInfo-------------"
-                f"\n - Action Thought:{self.action_thought}"
+        return (f"\n -------------Action Info-------------"
+                f"\n - Action Thought: {self.action_thought}"
                 f"\n - Actions: {self.actions}"
                 f"\n - Action Expectation: {self.action_expectation}"
                 f"\n - User Interaction Thought: {self.user_interaction_thought}"
-                f"\n -----------ActionInfo END-----------")
+                f"\n -----------Action Info END-----------")
 
 class ProgressInfo:
     def __init__(self, action_result, error_potential_causes, progress_status):
@@ -115,11 +116,11 @@ class ProgressInfo:
         self.progress_status = progress_status
 
     def __str__(self):
-        return (f"\n -------------ProgressInfo-------------"
+        return (f"\n -------------Progress Info-------------"
                 f"\n - Action Result: {self.action_result}"
                 f"\n - Error Potential Causes: {self.error_potential_causes}"
                 f"\n - Progress Status: {self.progress_status}"
-                f"\n -----------ProgressInfo END-----------")
+                f"\n -----------Progress Info END-----------")
 
 class UserInteractionInfo:
     def __init__(self, interaction_status, interaction_thought, action_instruction, response):
@@ -129,12 +130,12 @@ class UserInteractionInfo:
         self.response = response
 
     def __str__(self):
-        return (f"\n -------------UserInteractionInfo-------------"
+        return (f"\n -------------User Interaction Info-------------"
                 f"\n - Interaction Status: {self.interaction_status}"
                 f"\n - Interaction Thought: {self.interaction_thought}"
                 f"\n - Action Instruction: {self.action_instruction}"
                 f"\n - Response: {self.response}"
-                f"\n -----------UserInteractionInfo END-----------")
+                f"\n -----------User Interaction Info END-----------")
 
 class InstructionInfo:
     def __init__(self, ori, language, app_package_name, key_info_request):
@@ -145,13 +146,13 @@ class InstructionInfo:
         self.updated = []
 
     def __str__(self):
-        return (f"\n -------------InstructionInfo-------------"
-                f"\n - Original Instruction : {self.ori}"
+        return (f"\n -------------Task Instruction Info-------------"
+                f"\n - Original Instruction: {self.ori}"
                 f"\n - Instruction Language: {self.language}"
                 f"\n - App Package Name: {self.app_package_name}"
                 f"\n - Key Info Request: {self.key_info_request}"
                 f"\n - User Update Instructions: {self.updated}"
-                f"\n -----------InstructionInfo END-----------")
+                f"\n -----------Task Instruction Info END-----------")
 
     def get_instruction(self):
         return (self.ori + (f" | Instructions added after user interaction: {','.join(self.updated)}" if len(self.updated) > 0 else "")) if self.ori is not None else None

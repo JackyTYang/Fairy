@@ -32,7 +32,7 @@ class MobileController:
     async def custom_execute_action(self, atomic_action: AtomicActionType, args) -> str | None | list[str]:
         ...
 
-class MobileScreenshot:
+class MobileScreenCapturer:
 
     async def get_screen(self) -> Tuple[ScreenFileInfo, str | None]:
         ...

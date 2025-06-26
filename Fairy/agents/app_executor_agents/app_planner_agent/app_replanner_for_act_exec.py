@@ -17,7 +17,7 @@ from Fairy.agents.app_executor_agents.app_planner_agent.planner_common import sc
 from Fairy.agents.prompt_common import ordered_list, output_json_object, unordered_list
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.entity.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
-from Fairy.entity.log_template import LogTemplate, WorkerType
+from Fairy.entity.log_template import LogTemplate, LogEventType
 from Fairy.memory.long_time_memory_manager import LongMemoryCallType, LongMemoryType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.entity.message_entity import EventMessage, CallMessage
@@ -30,17 +30,20 @@ class AppRePlannerForActExecAgent(Agent):
             content="You are part of a helpful AI assistant for operating mobile phones and your identity is a planner. Your step is to verify whether the last action produced the expected behavior, to keep track of the progress and devise high-level plans to achieve the user's requests. Think as if you are a human user operating the phone, but if you are faced with uncertain options, you should actively interact with users.",
             type="SystemMessage")]
         super().__init__(runtime, "AppRePlannerForActExecAgent", config.model_client, system_messages)
-
+        self.log_t = LogTemplate(self)  # 日志模板
 
         self.non_visual_mode = config.non_visual_mode
         self.standalone_reflector_mode = config.reflection_policy == "standalone"
-        self.tag = "[Plan (Standalone Reflector Mode)]" if self.standalone_reflector_mode else "[RePlan (Hybrid Reflector Mode)]"
+        self.tag = "Plan" if self.standalone_reflector_mode else "Re-Plan"
+        if not self.standalone_reflector_mode:
+            logger.bind(log_tag="fairy_sys").warning(
+                f"WARNING: “The 'Reflection-Planning' hybrid mode (Re-Plan Mode) has been activated, in which the reflector and planner will be mixed, which, although speeding things up, may lead to incorrect conclusions in specific models where the context is too large. You can switch the mode by configuring the 'reflection_policy' setting in FairyConfig to 'standalone'.")
 
     @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
               listen_filter=lambda msg: msg.match(EventType.ScreenPerception, EventStatus.DONE))
     async def on_plan_with_hybrid_reflector_mode(self, message: EventMessage, message_context):
         if self.standalone_reflector_mode:
-            logger.bind(log_tag="fairy_sys").warning(LogTemplate["worker_skip"](WorkerType.Agent, self.name, "Configuration item 'selection_policy' is 'standalone' mode"))
+            logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerSkip)("Re-Plan", "Configuration item 'selection_policy' is 'hybrid' mode"))
             return
         else:
             await self.do_plan(message, message_context)
@@ -51,7 +54,7 @@ class AppRePlannerForActExecAgent(Agent):
         if self.standalone_reflector_mode:
             await self.do_plan(message, message_context)
         else:
-            logger.bind(log_tag="fairy_sys").warning(LogTemplate["worker_skip"](WorkerType.Agent, self.name, "Configuration item 'selection_policy' is 'hybrid' mode"))
+            logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerSkip)("Plan", "Configuration item 'selection_policy' is 'hybrid' mode"))
             return
 
 
@@ -63,7 +66,7 @@ class AppRePlannerForActExecAgent(Agent):
             })
         ))
         if memory[ShortMemoryCallType.GET_Is_INIT_MODE]:
-            logger.bind(log_tag="fairy_sys").warning(LogTemplate["worker_skip"](WorkerType.Agent, self.name, "NOT required for the first initialization"))
+            logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerSkip)(self.tag, "NOT required for the first initialization"))
             return
         else:
             await self.on_replan_for_act_exec(message, message_context)
@@ -72,11 +75,7 @@ class AppRePlannerForActExecAgent(Agent):
     async def on_replan_for_act_exec(self, message: EventMessage, message_context):
         # 发布Plan CREATED事件 & 记录日志
         await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Plan, EventStatus.CREATED))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Agent, self.name))
-
-        if not self.standalone_reflector_mode:
-            logger.bind(log_tag="fairy_sys").warning(
-                f"{self.tag} WARNING: “The 'reflection-Planning' hybrid mode (RePlan Mode) has been activated, in which the reflector and planner will be mixed, which, although speeding things up, may lead to incorrect conclusions in specific models where the context is too large. You can switch the mode by configuring the 'reflection_policy' setting in FairyConfig to 'standalone'.")
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)(self.tag))
 
         # 从ShortTimeMemoryManager获取Instruction\KeyInfo\Action Memory
         memory_get_call_content = {
@@ -107,14 +106,17 @@ class AppRePlannerForActExecAgent(Agent):
         # 如果是standalone_reflector_mode，检查任务是否已经结束
         if self.standalone_reflector_mode:
             if is_finished_action(current_action_memory[ActionMemoryType.ActionResult], current_action_memory[ActionMemoryType.Action]):
-                logger.bind(log_tag="fairy_sys").warning(f"{self.tag} The action has not been completed yet, skipped")
+                logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerSkip)(self.tag, "The task has been completed."))
+                # 任务已结束，发布Task Done事件
+                await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Task, EventStatus.DONE))
+                logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.TaskComplete)())
                 return
 
         # 从LongTimeMemoryManager获取Tips
         long_memory = await (await self.call("LongTimeMemoryManager",
             CallMessage(CallType.Memory_GET,{
                 LongMemoryCallType.GET_Tips: {
-                    LongMemoryType.Plan_Tips: {"query": instruction_memory, "app_package_name": instruction_memory.app_package_name}
+                    LongMemoryType.Plan_Tips: {"query": instruction_memory.get_instruction(), "app_package_name": instruction_memory.app_package_name}
                 }
             })
         ))
@@ -128,7 +130,7 @@ class AppRePlannerForActExecAgent(Agent):
             if not self.standalone_reflector_mode:
                 images.append(current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file())
 
-        plan_event_content, reflection_event_content = await self.request_llm(
+        plan_info, progress_info = await self.request_llm(
             self.build_prompt(
                 instruction_memory.get_instruction(),
                 current_action_memory[ActionMemoryType.Plan],
@@ -142,20 +144,24 @@ class AppRePlannerForActExecAgent(Agent):
             images=images
         )
 
+        logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.IntermediateResult)("Plan (before action execution) result", plan_info))
+
         if not self.standalone_reflector_mode: # 如果不是standalone_reflector_mode（即：当前是混合模式）
-            if is_finished_action(reflection_event_content, current_action_memory[ActionMemoryType.Action]): # 检查任务是否已经结束
+            logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.IntermediateResult)("Reflection result", progress_info))
+
+            if is_finished_action(progress_info, current_action_memory[ActionMemoryType.Action]): # 检查任务是否已经结束
                 # 发布Task DONE事件 & 记录日志
                 await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Task, EventStatus.DONE))
-                logger.bind(log_tag="fairy_sys").info(LogTemplate['task_complete']())
+                logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.TaskComplete)())
                 return # 无需继续执行，结束
             else:
                 # 发布Reflection事件（当前是混合模式，所以要发布该事件）
-                await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Reflection, EventStatus.DONE, reflection_event_content))
+                await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Reflection, EventStatus.DONE, progress_info))
 
         # 发布Plan DONE事件 & 记录日志（分离模式 or 混合模式下任务未结束 都要发布该事件）
         await asyncio.sleep(2)
-        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Plan, EventStatus.DONE, plan_event_content))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_complete'](WorkerType.Agent, self.name))
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Plan, EventStatus.DONE, plan_info))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)(self.tag))
 
     def build_prompt(self,
                      instruction,

@@ -1,7 +1,7 @@
-from Fairy.tools.screen_perceptor.entity import ScreenPreceptionInfo
+from Fairy.tools.screen_perceptor.entity import ScreenPerceptionInfo
 
 
-class FineGrainedVisualPerceptionInfo(ScreenPreceptionInfo):
+class FineGrainedVisualPerceptionInfo(ScreenPerceptionInfo):
     def __init__(self, width, height, perception_infos):
 
         keyboard_status = False

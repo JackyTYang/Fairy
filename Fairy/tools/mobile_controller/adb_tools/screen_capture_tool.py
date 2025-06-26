@@ -5,11 +5,12 @@ import subprocess
 from loguru import logger
 
 from Fairy.entity.info_entity import ScreenFileInfo, ActivityInfo
-from Fairy.tools.mobile_controller.entity import MobileScreenshot
+from Fairy.entity.log_template import LogTemplate
+from Fairy.tools.mobile_controller.entity import MobileScreenCapturer
 from Fairy.utils.task_executor import TaskExecutor
 
 
-class AdbMobileScreenshot(MobileScreenshot):
+class AdbMobileScreenCapturer(MobileScreenCapturer):
     def __init__(self, config):
         self.adb_path = config.get_adb_path()
         # Path of desktop local temporary storage
@@ -17,6 +18,8 @@ class AdbMobileScreenshot(MobileScreenshot):
         # Path of mobile phone screenshot
         self.screenshot_phone_path = config.screenshot_phone_path
         self.screenshot_filename = config.screenshot_filename
+
+        self.log_t = LogTemplate(self, "ADBScreenCapturer")  # 日志模板
 
 
     async def get_screen(self):

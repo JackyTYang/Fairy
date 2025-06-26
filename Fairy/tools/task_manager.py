@@ -3,7 +3,7 @@ from loguru import logger
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener, Worker
 from Fairy.entity.info_entity import GlobalPlanInfo, InstructionInfo
-from Fairy.entity.log_template import LogTemplate, WorkerType
+from Fairy.entity.log_template import LogTemplate, LogEventType
 from Fairy.entity.message_entity import EventMessage, CallMessage
 from Fairy.tools.mobile_controller.action_type import AtomicActionType
 from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
@@ -12,6 +12,7 @@ from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
 class TaskManager(Worker):
     def __init__(self, runtime) -> None:
         super().__init__(runtime, "TaskManager")
+        self.log_t = LogTemplate(self)  # 日志模板
 
         self.current_task = None
         self.finished_task_list = []
@@ -21,8 +22,8 @@ class TaskManager(Worker):
               listen_filter=lambda msg: msg.match(EventType.Plan, EventStatus.DONE))
     async def on_task_create(self, message: EventMessage, message_context):
         # GLOBAL_CHANNEL发布Task CREATE事件 & 记录日志
-        await self.publish(EventChannel.GLOBAL_CHANNEL, EventMessage(EventType.Task, EventStatus.CREATED, instruction_info))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Tool, self.name))
+        await self.publish(EventChannel.GLOBAL_CHANNEL, EventMessage(EventType.Task, EventStatus.CREATED))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)("Task Execution"))
 
         global_plan_info: GlobalPlanInfo = message.event_content
         self.current_task = global_plan_info.current_sub_task
@@ -53,7 +54,7 @@ class TaskManager(Worker):
     async def on_task_finish(self, message: EventMessage, message_context):
         # GLOBAL_CHANNEL发布Task DONE事件 & 记录日志
         await self.publish(EventChannel.GLOBAL_CHANNEL, EventMessage(EventType.Task, EventStatus.DONE, message))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_complete'](WorkerType.Tool, self.name))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)("Task Execution"))
 
     # @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
     #           listen_filter=lambda msg: msg.event == EventType.TaskFinish and msg.status == EventStatus.CREATED)

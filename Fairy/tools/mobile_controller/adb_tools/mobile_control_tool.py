@@ -5,6 +5,7 @@ from typing import List, Dict
 
 from loguru import logger
 
+from Fairy.entity.log_template import LogEventType, LogTemplate
 from Fairy.tools.mobile_controller.action_type import AtomicActionType
 from Fairy.tools.mobile_controller.entity import MobileController
 from Fairy.utils.task_executor import TaskExecutor
@@ -24,6 +25,8 @@ class AdbMobileController(MobileController):
     def __init__(self, config):
         self.adb_path = config.get_adb_path()
 
+        self.log_t = LogTemplate(self, "AdbMobileController")  # 日志模板
+
     async def custom_execute_action(self, atomic_action: AtomicActionType, args) -> str | None | list[str]:
         match atomic_action:
             case AtomicActionType.ListApps:
@@ -38,7 +41,9 @@ class AdbMobileController(MobileController):
     async def _run_command(self, action: AtomicActionType, command_builder, args):
         async def _command():
             command = command_builder(args)
-            logger.bind(log_tag="fairy_sys").debug(f"Executing ADB command {action} : {command}")
+            logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.Notice)(f"Executing Action: {action} (args: {args})"))
+            logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.Notice)(f"Executing ADB Command: {command}"))
+
             result = subprocess.run(f"{self.adb_path} {command}", capture_output=True, text=True, shell=True)
             if result.returncode != 0:
                 raise RuntimeError(f"Error while executing ADB command: {result.stderr}")

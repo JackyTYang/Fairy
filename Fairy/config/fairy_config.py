@@ -26,6 +26,7 @@ class FairyConfig:
                  visual_prompt_model: ModelConfig | None,
                  text_summarization_model: ModelConfig | None,
                  adb_path: str | None,
+                 device: str | None = None,
                  temp_path=None,
                  screenshot_phone_path=None,
                  screenshot_filename=None,
@@ -45,7 +46,7 @@ class FairyConfig:
         self.text_summarization_model_config = text_summarization_model
 
         self._adb_path = adb_path
-        self.device = None
+        self.device = device
 
         # path of local temporary storage
         self.temp_path = "tmp" if temp_path is None else temp_path
@@ -83,8 +84,8 @@ class FairyConfig:
     def get_log_temp_path(self):
         return os.path.join(self.task_temp_path, "log")
 
-    def get_short_time_memory_restore_point_path(self):
-        return os.path.join(self.task_temp_path, "STM_restore_point")
+    def get_restore_point_path(self):
+        return os.path.join(self.task_temp_path, "restore_point")
 
     def get_adb_path(self):
         return (self._adb_path + f" -s {self.device}") if self.device is not None else self._adb_path
@@ -112,13 +113,14 @@ class FairyEnvConfig(FairyConfig):
                               model_name=os.getenv("TEXT_SUMMARIZATION_LLM_API_NAME"),
                               api_base=os.getenv("TEXT_SUMMARIZATION_LLM_API_BASE"),
                               api_key=os.getenv("TEXT_SUMMARIZATION_LLM_API_KEY")
-                          ),
+                          ) if os.getenv("TEXT_SUMMARIZATION_LLM_API_KEY") is not None else None,
                           visual_prompt_model=ModelConfig(
                               model_name=os.getenv("VISUAL_PROMPT_LMM_API_NAME"),
                               api_base=os.getenv("VISUAL_PROMPT_LMM_API_BASE"),
                               api_key=os.getenv("VISUAL_PROMPT_LMM_API_KEY")
-                          ),
+                          ) if os.getenv("VISUAL_PROMPT_LMM_API_KEY") is not None else None,
                           adb_path=os.getenv("ADB_PATH"),
+                          device=os.getenv("DEVICE"),
                           temp_path=os.getenv("TEMP_PATH"),
                           screenshot_phone_path=os.getenv("SCREEN_PHONE_PATH"),
                           screenshot_filename=os.getenv("SCREEN_FILENAME"),
@@ -126,7 +128,7 @@ class FairyEnvConfig(FairyConfig):
                           screenshot_getter_type = MobileControllerType(os.getenv("SCREENSHOT_GETTER_TYPE")),
                           screen_perception_type = ScreenPerceptionType(os.getenv("SCREEN_PERCEPTION_TYPE")),
                           interaction_mode = InteractionMode(os.getenv("INTERACTION_MODE")),
-                          non_visual_mode=bool(os.getenv("NON_VISUAL_MODE")),
-                          manual_collect_app_info=bool(os.getenv("MANUAL_COLLECT_APP_INFO")),
+                          non_visual_mode=os.getenv("NON_VISUAL_MODE").lower() == 'true',
+                          manual_collect_app_info=os.getenv("MANUAL_COLLECT_APP_INFO").lower() == 'true',
                           reflection_policy=os.getenv("REFLECTION_POLICY"))
     

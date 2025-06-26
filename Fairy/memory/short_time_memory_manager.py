@@ -5,6 +5,7 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import Worker, listener
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.entity.info_entity import ActionInfo, ProgressInfo
+from Fairy.entity.log_template import LogTemplate
 from Fairy.entity.message_entity import EventMessage, CallMessage
 from Fairy.tools.mobile_controller.action_type import AtomicActionType
 from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
@@ -40,6 +41,8 @@ class ShortMemoryCallType(Enum):
 class ShortTimeMemoryManager(Worker):
     def __init__(self, runtime, config:FairyConfig):
         super().__init__(runtime, "ShortTimeMemoryManager", "ShortTimeMemoryManager")
+        self.log_t = LogTemplate(self)  # 日志模板
+
         self.memory_list = []
         # self.old_memory_list = []
 
@@ -51,7 +54,7 @@ class ShortTimeMemoryManager(Worker):
             MemoryType.GlobalPlan: [],
         }
 
-        self.stm_restore_point_path = config.get_short_time_memory_restore_point_path()
+        self.stm_restore_point_path = config.get_restore_point_path()
 
     def build_restore_point(self):
         current_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
@@ -112,7 +115,7 @@ class ShortTimeMemoryManager(Worker):
         await self._set_current_action_memory(ActionMemoryType.StartScreenPerception, next_start_screen_perception)
 
     @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
-              listen_filter=lambda msg: msg.match(EventType.Task, EventStatus.DONE))
+              listen_filter=lambda msg: msg.match(EventType.Task, EventStatus.CREATED))
     async def create_task_memory(self, message: EventMessage, message_context):
         memory_name = f"Task {len(self.memory_list)+1}"
         if len(self.memory_list) == 0 and self.current_memory is None:

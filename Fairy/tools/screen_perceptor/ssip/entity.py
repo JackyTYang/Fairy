@@ -1,7 +1,7 @@
-from ..entity import ScreenPreceptionInfo
+from ..entity import ScreenPerceptionInfo
 
 
-class AdaptiveSemanticScreenModelingInfo(ScreenPreceptionInfo):
+class AdaptiveSemanticScreenModelingInfo(ScreenPerceptionInfo):
     def __init__(self, width, height, perception_infos,keyboard_status):
         super().__init__(width, height, perception_infos, keyboard_status)
 

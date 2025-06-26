@@ -9,7 +9,7 @@ from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.entity.info_entity import PlanInfo, ScreenInfo
-from Fairy.entity.log_template import LogTemplate, WorkerType
+from Fairy.entity.log_template import LogTemplate, LogEventType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
 from Fairy.entity.message_entity import EventMessage, CallMessage
 from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
@@ -21,6 +21,8 @@ class KeyInfoExtractorAgent(Agent):
             content="You are part of a helpful AI assistant for operating mobile phones and your identity is a key information extractor. Your goal is to take notes of important content relevant to the user's request.",
             type="SystemMessage")]
         super().__init__(runtime, "KeyInfoExtractorAgent", config.model_client, system_messages)
+        self.log_t = LogTemplate(self)  # 日志模板
+
         self.non_visual_mode = config.non_visual_mode
 
     @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
@@ -28,7 +30,7 @@ class KeyInfoExtractorAgent(Agent):
     async def on_key_info_extract(self, message:EventMessage , message_context):
         # 发布KeyInfoExtraction CREATED事件 & 记录日志
         await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.KeyInfoExtraction, EventStatus.CREATED))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Agent, self.name))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)("Key Info Extraction"))
 
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, EndScreenPerception)\KeyInfo
         memory = await (await self.call(
@@ -51,7 +53,7 @@ class KeyInfoExtractorAgent(Agent):
         else:
             screenshot_prompt = "The following text description (e.g. JSON or XML) is converted from a screenshots of your phone to show the current state"
 
-        key_info_extraction_event_content = await self.request_llm(
+        key_info_extraction = await self.request_llm(
             self.build_prompt(
                 instruction_memory.get_instruction(),
                 instruction_memory.key_info_request,
@@ -63,9 +65,11 @@ class KeyInfoExtractorAgent(Agent):
             images=images
         )
 
+        logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.IntermediateResult)("key information extraction result", key_info_extraction))
+
         # 发布KeyInfoExtraction Done事件 & 记录日志
-        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.KeyInfoExtraction, EventStatus.DONE, key_info_extraction_event_content))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_complete'](WorkerType.Agent, self.name))
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.KeyInfoExtraction, EventStatus.DONE, key_info_extraction))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)("Key Info Extraction"))
 
     @staticmethod
     def build_prompt(instruction,

@@ -8,7 +8,7 @@ from Fairy.fairy import FairyCore
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.entity.message_entity import EventMessage
 from Fairy.tools.mobile_controller.action_executor import ActionExecutor
-from Fairy.tools.mobile_controller.app_info_manager import AppInfoManager
+from Fairy.tools.app_info_manager import AppInfoManager
 from Fairy.entity.type import EventType
 
 ADB_PATH = "C:/Users/neosunjz/AppData/Local/Android/Sdk/platform-tools/adb.exe"

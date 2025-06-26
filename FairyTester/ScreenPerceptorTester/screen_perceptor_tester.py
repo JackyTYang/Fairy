@@ -11,7 +11,7 @@ from Fairy.entity.message_entity import EventMessage
 from Fairy.tools.screen_perceptor.screen_perceptor import ScreenPerceptor
 from pathlib import Path
 
-from Fairy.entity.type import EventType
+from Fairy.entity.type import EventType, EventChannel, EventStatus
 
 load_dotenv(dotenv_path=Path('../.env'))
 
@@ -54,7 +54,7 @@ async def test_with_current_screen():
     runtime = CitlaliRuntime()
     runtime.run()
     runtime.register(lambda: ScreenPerceptor(runtime, _config))
-    await runtime.publish("app_channel", EventMessage(EventType.Task_CREATED, None))
+    await runtime.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.ActionExecution, EventStatus.DONE))
     await runtime.stop()
 
 if __name__ == '__main__':

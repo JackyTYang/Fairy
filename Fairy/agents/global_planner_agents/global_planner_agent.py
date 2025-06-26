@@ -11,7 +11,7 @@ from Fairy.agents.global_planner_agents.global_planner_common import plan_steps,
 from Fairy.agents.prompt_common import ordered_list, output_json_object
 from Fairy.config.fairy_config import FairyConfig
 from Fairy.entity.info_entity import GlobalPlanInfo
-from Fairy.entity.log_template import LogTemplate, WorkerType
+from Fairy.entity.log_template import LogTemplate, LogEventType
 from Fairy.entity.message_entity import EventMessage, CallMessage
 from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
 
@@ -22,13 +22,14 @@ class GlobalPlannerAgent(Agent):
             content="You are a helpful AI assistant for operating mobile phones. Your goal is to take notes of important content relevant to the user's request.",
             type="SystemMessage")]
         super().__init__(runtime, "GlobalPlannerAgent", config.model_client, system_messages)
+        self.log_t = LogTemplate(self)  # 日志模板
 
     @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.GLOBAL_CHANNEL,
               listen_filter=lambda msg: msg.match(EventType.INIT, EventStatus.CREATED))
     async def on_global_plan(self, message:EventMessage , message_context):
         # 发布Plan CREATED事件 & 记录日志
         await self.publish(EventChannel.GLOBAL_CHANNEL, EventMessage(EventType.Plan, EventStatus.CREATED))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Agent, self.name))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)("Init Global Plan"))
 
         app_info_list = await (await self.call(
             "AppInfoManager",
@@ -42,9 +43,11 @@ class GlobalPlannerAgent(Agent):
             )
         )
 
+        logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.IntermediateResult)("Init global plan result", global_plan))
+
         # 发布Plan Done事件 & 记录日志
         await self.publish(EventChannel.GLOBAL_CHANNEL, EventMessage(EventType.Plan, EventStatus.DONE, global_plan))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['task_complete'](WorkerType.Agent, self.name))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)("Init Global Plan"))
 
     @staticmethod
     def build_prompt(user_instruction, app_info_list) -> str:

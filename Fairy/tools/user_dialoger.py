@@ -4,30 +4,32 @@ from Citlali.core.agent import Worker
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Fairy.config.fairy_config import FairyConfig, InteractionMode
-from Fairy.entity.log_template import WorkerType, LogTemplate
+from Fairy.entity.log_template import LogTemplate, LogEventType
 from Fairy.entity.message_entity import EventMessage
 from Fairy.entity.type import EventType, EventChannel, EventStatus
 import tkinter as tk
 
 
-class UserChat(Worker):
+class UserDialoger(Worker):
     def __init__(self, runtime, config:FairyConfig):
-        super().__init__(runtime, "UserChat", "UserChat")
+        super().__init__(runtime, "UserDialoger", "UserDialoger")
+        self.log_t = LogTemplate(self)  # 日志模板
+
         self.interaction_mode = config.interaction_mode
 
     @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
               listen_filter=lambda msg: msg.match(EventType.UserInteraction, EventStatus.DONE))
-    async def on_user_chat(self, message: EventMessage, message_context):
+    async def on_user_dialog(self, message: EventMessage, message_context):
         if message.event_content.interaction_status == "B":
-            await self.do_user_chat(message, message_context)
+            await self.do_user_dialog(message, message_context)
         else:
-            logger.bind(log_tag="fairy_sys").warning(LogTemplate["worker_skip"](WorkerType.Tool, self.name, "No user chat required"))
+            logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerSkip)("User Dialog", "Further user dialog not required."))
             return
 
-    async def do_user_chat(self, message: EventMessage, message_context):
+    async def do_user_dialog(self, message: EventMessage, message_context):
         # 发布UserChat CREATED事件 & 记录日志
         await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.UserChat, EventStatus.CREATED))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_start'](WorkerType.Tool, self.name))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)("User Dialog"))
 
         title_prompt_words = f"Fairy需要与您沟通以完成后续操作\nFairy will need to communicate with you to complete the follow up action"
 
@@ -40,12 +42,12 @@ class UserChat(Worker):
             case _:
                 raise RuntimeError(f"Unknown interaction mode: {self.interaction_mode}")
 
-        logger.bind(log_tag="fairy_sys").debug(f"Further instructions have been obtained. Instruction：{user_response}")
+        logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.Notice)(f"Further instructions have been obtained. Instruction：{user_response}"))
 
         message.event_content.response = user_response
         # 发布UserChat Done事件 & 记录日志
         await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.UserChat, EventStatus.DONE, message.event_content))
-        logger.bind(log_tag="fairy_sys").info(LogTemplate['worker_complete'](WorkerType.Tool, self.name))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)("User Dialog"))
 
     @staticmethod
     def ask_fairy_interaction(title_prompt_words: str, prompt_words: str) -> str:

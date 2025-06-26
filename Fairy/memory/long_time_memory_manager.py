@@ -8,6 +8,7 @@ from loguru import logger
 from Citlali.core.type import ListenerType
 from Citlali.core.worker import Worker, listener
 from Fairy.config.fairy_config import FairyConfig
+from Fairy.entity.log_template import LogEventType, LogTemplate
 from Fairy.entity.message_entity import CallMessage
 from Fairy.entity.type import CallType
 
@@ -22,6 +23,7 @@ class LongMemoryType(Enum):
 class LongTimeMemoryManager(Worker):
     def __init__(self, runtime, config:FairyConfig):
         super().__init__(runtime, "LongTimeMemoryManager", "LongTimeMemoryManager")
+        self.log_t = LogTemplate(self)  # 日志模板
 
         self.llm = config.rag_model_client
 
@@ -99,6 +101,10 @@ class LongTimeMemoryManager(Worker):
             )
             query_engine = self.index[memory_type].as_query_engine(llm=self.llm, filters=filters)
             response = query_engine.query(map[memory_type](query_text))
+
+            logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.Notice)(f"RAG Query:{query_text}"))
+            logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.Notice)(f"RAG Query Response:{response}"))
+
             # 添加缓存
             self.add_memory_cache(memory_type, query_text, response)
             memory[memory_type] = response

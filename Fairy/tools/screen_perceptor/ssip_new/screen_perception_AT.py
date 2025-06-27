@@ -6,7 +6,7 @@ import re
 from loguru import logger
 
 
-class ScreenAccessibilityTree:
+class ScreenPerceptionAccessibilityTree:
     def __init__(self, at_xml: str, target_app: None):
         self.at_xml_raw = at_xml
         self.at_dict_raw = xmltodict.parse(self.at_xml_raw)['hierarchy']['node']

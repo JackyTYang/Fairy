@@ -7,7 +7,7 @@ from Fairy.entity.log_template import LogTemplate, WorkerType, LogEventType
 from Fairy.tools.screen_perceptor.ssip_new.entity import SSIPInfo
 from Fairy.tools.screen_perceptor.ssip_new.llm_tools.text_summarizer import TextSummarizer
 from Fairy.tools.screen_perceptor.ssip_new.tools import draw_transparent_boxes_with_labels
-from Fairy.tools.screen_perceptor.ssip_new.screen_AT import ScreenAccessibilityTree
+from Fairy.tools.screen_perceptor.ssip_new.screen_perception_AT import ScreenPerceptionAccessibilityTree
 from Fairy.tools.screen_perceptor.ssip_new.llm_tools.visual_description_generator import VisualDescriptionGenerator
 
 class ScreenStructuredInfoPerception:
@@ -19,7 +19,7 @@ class ScreenStructuredInfoPerception:
     async def get_perception_infos(self, raw_screenshot_file_info: ScreenFileInfo, ui_hierarchy_xml, non_visual_mode=False, target_app=None, use_clickable_node_summaries=True):
         logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)("Screen Perception"))
         logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.Notice)("Analyzing Screen Accessibility Tree..."))
-        at = ScreenAccessibilityTree(ui_hierarchy_xml, target_app = target_app)
+        at = ScreenPerceptionAccessibilityTree(ui_hierarchy_xml, target_app = target_app)
 
         # 确定宽高
         screenshot_image = raw_screenshot_file_info.get_screenshot_PILImage_file()

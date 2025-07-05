@@ -3,11 +3,11 @@ from copy import deepcopy
 from loguru import logger
 
 from Fairy.entity.info_entity import ScreenFileInfo
-from Fairy.entity.log_template import LogTemplate, WorkerType, LogEventType
-from Fairy.tools.screen_perceptor.ssip_new.entity import SSIPInfo
+from Fairy.entity.log_template import LogTemplate, LogEventType
+from Fairy.tools.screen_perceptor.ssip_new.perceptor.entity import SSIPInfo
 from Fairy.tools.screen_perceptor.ssip_new.llm_tools.text_summarizer import TextSummarizer
-from Fairy.tools.screen_perceptor.ssip_new.tools import draw_transparent_boxes_with_labels
-from Fairy.tools.screen_perceptor.ssip_new.screen_perception_AT import ScreenPerceptionAccessibilityTree
+from Fairy.tools.screen_perceptor.ssip_new.perceptor.tools import draw_transparent_boxes_with_labels
+from Fairy.tools.screen_perceptor.ssip_new.perceptor.screen_perception_AT import ScreenPerceptionAccessibilityTree
 from Fairy.tools.screen_perceptor.ssip_new.llm_tools.visual_description_generator import VisualDescriptionGenerator
 
 class ScreenStructuredInfoPerception:

@@ -8,7 +8,7 @@ from Fairy.tools.mobile_controller.adb_tools.screen_capture_tool import AdbMobil
 from Fairy.tools.mobile_controller.ui_automator_tools.screen_capture_tool import UiAutomatorMobileScreenCapturer
 from Fairy.entity.info_entity import ScreenInfo
 from Fairy.entity.message_entity import EventMessage
-from Fairy.tools.screen_perceptor.ssip_new.perceptor import ScreenStructuredInfoPerception
+from Fairy.tools.screen_perceptor.ssip_new.perceptor.perceptor import ScreenStructuredInfoPerception
 try:
     from Fairy.tools.screen_perceptor.fvp.perceptor import FineGrainedVisualPerceptor
 except ImportError:

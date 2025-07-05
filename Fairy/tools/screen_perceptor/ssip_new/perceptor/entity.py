@@ -1,4 +1,4 @@
-from ..entity import ScreenPerceptionInfo
+from Fairy.tools.screen_perceptor.entity import ScreenPerceptionInfo
 
 
 class SSIPInfo(ScreenPerceptionInfo):

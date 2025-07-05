@@ -1,10 +1,5 @@
 from copy import deepcopy
 
-import xmltodict
-import re
-
-from loguru import logger
-
 from Fairy.tools.screen_perceptor.ssip_new.screen_AT import ScreenAccessibilityTree
 
 
@@ -223,6 +218,7 @@ class ScreenPerceptionAccessibilityTree(ScreenAccessibilityTree):
     def _redundant_info_filter(node):
         # 删除不必要的信息，例如包名
         del node['package']
+        del node['layer']
         # 简化不必要的类名
         node['class'] = node['class'].split('.')[-1].replace("ImageView", "Img").replace("TextView", "Txt")
         # 简化不必要的资源ID

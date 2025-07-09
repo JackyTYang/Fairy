@@ -82,8 +82,8 @@ class FairyCore:
               "                   /____/   \n"
               )
         print("Fairy Mobile Assistant V1.0.1 \n"
-              "[Design BY Jiazheng.Sun, Te.Yang, Jiayang.Niu, Yongyong.Lu] \n"
-              "[Fudan University CodeWisdom Lab © 2025]\n")
+              "[Design BY Anonymous authors] \n"
+              "[Anonymous Institution © 2025]\n")
         await self.new_task(task_name)
         await self.get_device()
 

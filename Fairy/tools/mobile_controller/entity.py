@@ -3,7 +3,7 @@ from typing import List, Dict, Tuple
 
 from loguru import logger
 
-from Fairy.info_entity import ScreenFileInfo, ActivityInfo
+from Fairy.entity.info_entity import ScreenFileInfo, ActivityInfo
 from Fairy.tools.mobile_controller.action_type import AtomicActionType
 
 
@@ -32,10 +32,13 @@ class MobileController:
     async def custom_execute_action(self, atomic_action: AtomicActionType, args) -> str | None | list[str]:
         ...
 
-class MobileScreenshot:
+class MobileScreenCapturer:
 
     async def get_screen(self) -> Tuple[ScreenFileInfo, str | None]:
         ...
 
     async def get_current_activity(self) -> ActivityInfo:
+        ...
+
+    async def get_keyboard_activation_status(self) -> Tuple[str, bool]:
         ...

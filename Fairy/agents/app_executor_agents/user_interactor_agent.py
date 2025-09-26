@@ -9,10 +9,11 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.config.fairy_config import FairyConfig
-from Fairy.info_entity import PlanInfo, ScreenInfo, UserInteractionInfo
+from Fairy.entity.info_entity import PlanInfo, ScreenInfo, UserInteractionInfo
+from Fairy.entity.log_template import LogTemplate, LogEventType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
-from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, CallType
+from Fairy.entity.message_entity import EventMessage, CallMessage
+from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
 
 
 class UserInteractorAgent(Agent):
@@ -21,23 +22,27 @@ class UserInteractorAgent(Agent):
             content="You are a helpful AI assistant for operating mobile phones. Your goal is to interact with the user. Think as if you are a human user operating the phone.",
             type="SystemMessage")]
         super().__init__(runtime, "UserInteractorAgent", config.model_client, system_messages)
+        self.log_t = LogTemplate(self)  # 日志模板
+
         self.non_visual_mode = config.non_visual_mode
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.Plan_DONE)
+    @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
+              listen_filter=lambda msg: msg.match(EventType.Plan, EventStatus.DONE))
     async def on_user_interact(self, message: EventMessage, message_context):
         if str(message.event_content.user_interaction_type) != "0":
             await self._on_user_interact(message, message_context)
         else:
-            logger.bind(log_tag="fairy_sys").info("[Interact With User] No user interaction required, skipped")
+            logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerSkip)("User Interaction", "No user interaction required."))
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.UserChat_DONE)
+    @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
+              listen_filter=lambda msg: msg.match(EventType.UserChat, EventStatus.DONE))
     async def on_user_interact_reflect(self, message: EventMessage, message_context):
         await self._on_user_interact(message, message_context)
 
     async def _on_user_interact(self, message: EventMessage, message_context):
-        logger.bind(log_tag="fairy_sys").info("[Interact With User] TASK in progress...")
+        # 发布UserInteraction CREATED事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.UserInteraction, EventStatus.CREATED))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)("User Interaction"))
 
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, StartScreenPerception)\Historical Action Memory (Action, ActionResult)\KeyInfo
         memory = await (await self.call(
@@ -61,7 +66,7 @@ class UserInteractorAgent(Agent):
         else:
             screenshot_prompt = "The following text description (e.g. JSON or XML) is converted from a screenshots of your phone to show the current state"
 
-        interactor_event_content = await self.request_llm(
+        user_interaction_info = await self.request_llm(
             self.build_init_prompt(instruction_memory.get_instruction(),
                                    instruction_memory.language,
                                    current_action_memory[ActionMemoryType.Plan],
@@ -72,18 +77,11 @@ class UserInteractorAgent(Agent):
             images=images,
         )
 
-        if interactor_event_content.interaction_status == "A":
-            await self.publish("app_channel", EventMessage(EventType.UserInteraction_DONE, interactor_event_content))
-        elif interactor_event_content.interaction_status == "B":
-            await self.publish("app_channel", EventMessage(EventType.UserChat_CREATED, interactor_event_content))
-        # elif interactor_event_content.interaction_status == "C":
-        #     await self.publish("app_channel", EventMessage(EventType.Task, EventStatus.CREATED, {
-        #         "instruction": interactor_event_content.action_instruction,
-        #         "thought": interactor_event_content.interaction_thought,
-        #         "task_name": "More Info Explore",
-        #         "source": "UserInteractorAgent"
-        #     }))
-        logger.bind(log_tag="fairy_sys").info("[Interact With User] TASK completed.")
+        logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.IntermediateResult)("User interaction result", user_interaction_info))
+
+        # 发布UserInteraction Done事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.UserInteraction, EventStatus.DONE, user_interaction_info))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)("User Interaction"))
 
     @staticmethod
     def get_user_interaction_type_desc(user_interaction_type):

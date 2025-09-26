@@ -12,7 +12,7 @@ from dashscope import MultiModalConversation
 import dashscope
 
 from Fairy.config.model_config import ModelConfig
-from Fairy.info_entity import ScreenFileInfo
+from Fairy.entity.info_entity import ScreenFileInfo
 
 
 class ScreenIconPerception:

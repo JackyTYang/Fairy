@@ -3,6 +3,7 @@ from typing import List, Dict
 
 from loguru import logger
 
+from Fairy.entity.log_template import LogTemplate, LogEventType
 from Fairy.tools.mobile_controller.action_type import AtomicActionType
 import uiautomator2 as u2
 
@@ -18,8 +19,10 @@ class UiAutomatorMobileController(MobileController):
     def __init__(self, config):
         self.dev = u2.connect(config.device)
 
+        self.log_t = LogTemplate(self, "UiAutomatorMobileController")  # 日志模板
+
     async def custom_execute_action(self, atomic_action: AtomicActionType, args) -> str | None | list[str]:
-        logger.bind(log_tag="fairy_sys").debug(f"Executing UI Automator Control Command {atomic_action} (args: {args})")
+        logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.Notice)(f"Executing Action: {atomic_action} (args: {args})"))
         match atomic_action:
             case AtomicActionType.Swipe:
                 result = self.dev.swipe(args['x1'],args['y1'],args['x2'],args['y2'], args['duration']/1000) # 单位是s而不是ms

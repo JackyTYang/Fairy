@@ -8,13 +8,14 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.agents.app_executor_agents.app_planner_agent.reflector_common import old_and_new_screen_comparison, reflection_steps, \
-    reflection_output, is_finished_action
+    reflection_output
 from Fairy.agents.prompt_common import output_json_object, ordered_list
 from Fairy.config.fairy_config import FairyConfig
-from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
+from Fairy.entity.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
+from Fairy.entity.log_template import LogTemplate, LogEventType
 from Fairy.memory.short_time_memory_manager import ShortMemoryCallType, ActionMemoryType
-from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, CallType
+from Fairy.entity.message_entity import EventMessage, CallMessage
+from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
 
 
 class AppReflectorAgent(Agent):
@@ -23,33 +24,37 @@ class AppReflectorAgent(Agent):
             content="You are part of a helpful AI assistant for operating mobile phones and your identity is a reflector. Your goal is to verify whether the last action produced the expected behavior, to keep track of the progress.",
             type="SystemMessage")]
         super().__init__(runtime, "AppReflectorAgent", config.model_client, system_messages)
+        self.log_t = LogTemplate(self)  # 日志模板
 
         self.non_visual_mode = config.non_visual_mode
         self.standalone_reflector_mode = config.reflection_policy == "standalone"
+        if self.standalone_reflector_mode:
+            logger.bind(log_tag="fairy_sys").warning(
+                "WARNING: Standalone Reflector mode has been activated, in which the reflector and replanner will be executed separately, which may result in a slowdown. You can switch to hybrid mode by configuring the 'reflection_policy' setting in FairyConfig to 'hybrid'.")
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.ScreenPerception_DONE)
+    @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
+              listen_filter=lambda msg: msg.match(EventType.ScreenPerception, EventStatus.DONE))
     async def on_reflect(self, message: EventMessage, message_context):
+        if not self.standalone_reflector_mode:
+            logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerSkip)("Action Reflection", "Configuration item 'selection_policy' is 'hybrid' mode"))
+            return
+
         memory = await (await self.call("ShortTimeMemoryManager",
             CallMessage(CallType.Memory_GET, {
                 ShortMemoryCallType.GET_Is_INIT_MODE: None
             })
         ))
         if memory[ShortMemoryCallType.GET_Is_INIT_MODE]:
-            logger.bind(log_tag="fairy_sys").warning("[Action Reflection] Reflection is not required for the first initialization, skipped")
+            logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerSkip)("Action Reflection", "NOT required for the first initialization"))
             return
         else:
             await self.do_reflect(message, message_context)
 
     async def do_reflect(self, message: EventMessage, message_context):
-        if self.standalone_reflector_mode:
-            logger.bind(log_tag="fairy_sys").warning(
-                "[Action Reflection] WARNING: Standalone Reflector mode has been activated, in which the reflector and replanner will be executed separately, which may result in a slowdown. You can switch to hybrid mode by configuring the 'reflection_policy' setting in FairyConfig to 'hybrid'.")
-        else:
-            logger.bind(log_tag="fairy_sys").warning("[Action Reflection] Configuration item 'selection_policy' is 'hybrid' mode, Standalone Reflector skipped.")
-            return
+        # 发布Reflection CREATED事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.Reflection, EventStatus.CREATED))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)("Action Reflection"))
 
-        logger.bind(log_tag="fairy_sys").info("[Action Reflection] TASK in progress...")
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, Action, StartScreenPerception, EndScreenPerception)\KeyInfo
         memory = await (await self.call(
             "ShortTimeMemoryManager",
@@ -69,7 +74,7 @@ class AppReflectorAgent(Agent):
             images.append(current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file())
             images.append(current_action_memory[ActionMemoryType.EndScreenPerception].screenshot_file_info.get_screenshot_Image_file())
 
-        reflection_event_content = await self.request_llm(
+        progress_info = await self.request_llm(
             self.build_prompt(
                 instruction_memory.get_instruction(),
                 current_action_memory[ActionMemoryType.Plan],
@@ -81,14 +86,11 @@ class AppReflectorAgent(Agent):
             images=images
         )
 
-        # 发布Reflection事件
-        await self.publish("app_channel", EventMessage(EventType.Reflection_DONE, reflection_event_content))
+        logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.IntermediateResult)("Reflection result", progress_info))
 
-        if is_finished_action(reflection_event_content, current_action_memory[ActionMemoryType.Action]):
-            await self.publish("app_channel", EventMessage(EventType.Task_DONE))
-
-        logger.bind(log_tag="fairy_sys").info("[Action Reflection] TASK completed.")
-
+        # 发布Reflection DONE事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL,EventMessage(EventType.Reflection, EventStatus.DONE, progress_info))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)("Action Reflection"))
 
     def build_prompt(self,
                      instruction,

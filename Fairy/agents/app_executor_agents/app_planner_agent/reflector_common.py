@@ -1,6 +1,6 @@
 from loguru import logger
 
-from Fairy.info_entity import ProgressInfo, ActionInfo, ScreenInfo
+from Fairy.entity.info_entity import ProgressInfo, ActionInfo, ScreenInfo
 
 reflection_steps = [
     "Carefully examine the screenshots and screen information before and after the action provided above to determine which of the following resulted from this action:",

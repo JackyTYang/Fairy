@@ -1,8 +1,7 @@
-
 <div style="display: flex; justify-content: center; align-items: center; flex-direction: column; margin: 20px 0px">
   <img src="README/images/logo.png" alt="logo" width="200">
-  <h1 style="margin: 10px; padding: 0px; text-align: center">Fairy: Interactive Mobile Assistant to Real-world Tasks via Multi-agent Evolution</h1>
-  <p style="text-align: center">Anonymous authors</p>
+  <p style="text-align: center">Fudan University, AICS<br/>CodeWisdom Lab<br/> Jiazheng Sun, Te Yang, Jiayang Niu, Mingxuan Li,
+ Yongyong Lu, Ruimeng Yang, Xin Peng</p>
   <img src="README/images/case.png" alt="logo" width="90%"/>
 </div>
 

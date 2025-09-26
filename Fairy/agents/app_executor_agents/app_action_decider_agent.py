@@ -9,11 +9,12 @@ from Citlali.core.type import ListenerType
 from Citlali.core.worker import listener
 from Citlali.models.entity import ChatMessage
 from Fairy.config.fairy_config import FairyConfig
-from Fairy.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
-from Fairy.memory.long_time_memory_manager import LongMemoryCallType
+from Fairy.entity.info_entity import PlanInfo, ProgressInfo, ScreenInfo, ActionInfo
+from Fairy.entity.log_template import LogTemplate, LogEventType
+from Fairy.memory.long_time_memory_manager import LongMemoryCallType, LongMemoryType
 from Fairy.memory.short_time_memory_manager import ActionMemoryType, ShortMemoryCallType
-from Fairy.message_entity import EventMessage, CallMessage
-from Fairy.type import EventType, CallType
+from Fairy.entity.message_entity import EventMessage, CallMessage
+from Fairy.entity.type import EventType, CallType, EventChannel, EventStatus
 from Fairy.tools.mobile_controller.action_type import ATOMIC_ACTION_SIGNITURES, AtomicActionType
 
 
@@ -23,17 +24,21 @@ class AppActionDeciderAgent(Agent):
             content="You are part of a helpful AI assistant for operating mobile phones and your identity is an action decider. Your goal is to choose the correct atomic actions to complete the user's instruction. Think as if you are a human user operating the phone.",
             type="SystemMessage")]
         super().__init__(runtime, " AppActionDeciderAgent", config.model_client, system_messages)
+        self.log_t = LogTemplate(self)  # 日志模板
+
         self.non_visual_mode = config.non_visual_mode
+        self.convert_marks_to_coordinates = None
 
-    @listener(ListenerType.ON_NOTIFIED, channel="app_channel",
-              listen_filter=lambda msg: msg.event == EventType.Plan_DONE)
+    @listener(ListenerType.ON_NOTIFIED, channel=EventChannel.APP_CHANNEL,
+              listen_filter=lambda msg: msg.match(EventType.Plan, EventStatus.DONE))
     async def on_execute_plan(self, message: EventMessage, message_context):
-
-        logger.bind(log_tag="fairy_sys").info("[Atomic Action Decision] TASK in progress...")
+        # 发布ActionDecision CREATED事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.ActionDecision, EventStatus.CREATED))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)("Action Decision"))
 
         # 如果当前Plan需要用户交互，则跳过
         if str(message.event_content.user_interaction_type) != "0":
-            logger.bind(log_tag="fairy_sys").info("[Atomic Action Decision] User interaction required, skipped")
+            logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerSkip)("Action Decision", "User interaction required."))
             return
 
         # 从ShortTimeMemoryManager获取Instruction\Current Action Memory (Plan, StartScreenPerception)\Historical Action Memory (Action, ActionResult)\KeyInfo
@@ -58,10 +63,15 @@ class AppActionDeciderAgent(Agent):
             long_memory = await (await self.call(
                 "LongTimeMemoryManager",
                 CallMessage(CallType.Memory_GET, {
-                    LongMemoryCallType.GET_Execution_ERROR_Tips: historical_action_memory[ActionMemoryType.ActionResult][-1].error_potential_causes,
+                    LongMemoryCallType.GET_Tips: {
+                        LongMemoryType.Execution_ERROR_Tips: {
+                            "query": historical_action_memory[ActionMemoryType.ActionResult][-1].error_potential_causes,
+                            "app_package_name": instruction_memory.app_package_name
+                        }
+                    }
                 })
             ))
-            execution_tips = long_memory[LongMemoryCallType.GET_Execution_ERROR_Tips]
+            execution_tips = long_memory[LongMemoryCallType.GET_Tips][LongMemoryType.Execution_ERROR_Tips]
         else:
             # 如果上次任务成功，则需要提取执行Tips
             # 提取当前的Sub-goal
@@ -69,25 +79,34 @@ class AppActionDeciderAgent(Agent):
             # 从LongTimeMemoryManager获取Tips
             long_memory = await (await self.call(
                 "LongTimeMemoryManager",
-                CallMessage(CallType.Memory_GET,{
-                    LongMemoryCallType.GET_Execution_Tips: sub_goal,
+                CallMessage(CallType.Memory_GET, {
+                    LongMemoryCallType.GET_Tips: {
+                        LongMemoryType.Execution_Tips: {
+                            "query": sub_goal,
+                            "app_package_name": instruction_memory.app_package_name
+                        }
+                    }
                 })
             ))
-            execution_tips = long_memory[LongMemoryCallType.GET_Execution_Tips]
+            execution_tips = long_memory[LongMemoryCallType.GET_Tips][LongMemoryType.Execution_Tips]
 
         images = []
+        start_screen_perception = current_action_memory[ActionMemoryType.StartScreenPerception]
         if not self.non_visual_mode:
-            images.append(current_action_memory[ActionMemoryType.StartScreenPerception].screenshot_file_info.get_screenshot_Image_file())
+            images.append(start_screen_perception.screenshot_file_info.get_screenshot_Image_file())
             screenshot_prompt = "The attached image is a screenshots of your phone to show the current state"
         else:
             screenshot_prompt = "The following text description (e.g. JSON or XML) is converted from a screenshots of your phone to show the current state"
 
-        event_content = await self.request_llm(
+        if start_screen_perception.perception_infos.use_set_of_marks_mapping:
+            self.convert_marks_to_coordinates = start_screen_perception.perception_infos.convert_marks_to_coordinates
+
+        action_info = await self.request_llm(
             self.build_prompt(
                 instruction_memory.get_instruction(),
                 instruction_memory.language,
                 current_action_memory[ActionMemoryType.Plan],
-                current_action_memory[ActionMemoryType.StartScreenPerception],
+                start_screen_perception,
                 historical_action_memory[ActionMemoryType.Action],
                 historical_action_memory[ActionMemoryType.ActionResult],
                 execution_tips,
@@ -97,11 +116,14 @@ class AppActionDeciderAgent(Agent):
             images=images
         )
 
-        await self.publish("app_channel", EventMessage(EventType.ActionExecution_CREATED, event_content))
-        logger.bind(log_tag="fairy_sys").info("[Atomic Action Decision] TASK completed.")
+        logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.IntermediateResult)("Action decision result", action_info))
 
-    @staticmethod
-    def build_prompt(instruction,
+        # 发布ActionDecision Done事件 & 记录日志
+        await self.publish(EventChannel.APP_CHANNEL, EventMessage(EventType.ActionDecision, EventStatus.DONE, action_info))
+        logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)("Action Decision"))
+
+    def build_prompt(self,
+                     instruction,
                      ins_language,
                      plan_info: PlanInfo,
                      current_screen_perception_info: ScreenInfo,
@@ -133,11 +155,13 @@ class AppActionDeciderAgent(Agent):
 
         prompt += "- Atomic Actions: \n"
         prompt += "The atomic action functions are listed in the format of `name(arguments): description` as follows:\n"
+        if self.convert_marks_to_coordinates is not None:
+            for action, value in ATOMIC_ACTION_SIGNITURES.items():
+                prompt += f"- {action}({', '.join(value['SoM_arguments'])}): {value['description'](True)}\n"
+        else:
+            for action, value in ATOMIC_ACTION_SIGNITURES.items():
+                prompt += f"- {action}({', '.join(value['arguments'])}): {value['description'](False)}\n"
 
-        for action, value in ATOMIC_ACTION_SIGNITURES.items():
-            # if current_screen_perception_info.perception_infos.keyboard_status and action == AtomicActionType.Type:
-            #     continue # Skip the Type action if the keyboard is not activated
-            prompt += f"- {action}({', '.join(value['arguments'])}): {value['description']}\n"
         prompt += f"IMPORTANT: When you input something (especially a search), please be careful to use the language {ins_language}.\n" \
                   "\n"
         if not current_screen_perception_info.perception_infos.keyboard_status:
@@ -177,7 +201,6 @@ class AppActionDeciderAgent(Agent):
         return prompt
 
     def parse_response(self, response: str) -> ActionInfo | None:
-
         if "json" in response:
             response = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL).group(1)
         response_jsonobject = json.loads(response)
@@ -187,5 +210,43 @@ class AppActionDeciderAgent(Agent):
                 print(f"Error! Invalid action name: {action['name']}")
                 return None
 
+        if self.convert_marks_to_coordinates is not None:
+            logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.IntermediateResult)("Original action decision (before converting markers to coordinates) result", response_jsonobject['actions']))
+            response_jsonobject['actions'] = self.SoM_args_conversion(response_jsonobject['actions'], self.convert_marks_to_coordinates)
+
         action_info = ActionInfo(response_jsonobject['action_thought'], response_jsonobject['actions'], response_jsonobject['action_expectation'], response_jsonobject['user_interaction_thought'])
         return action_info
+
+    def SoM_args_conversion(self, actions, convert_marks_to_coordinates):
+        args = []
+        for action in actions:
+            match AtomicActionType(action['name']):
+                case AtomicActionType.Tap:
+                    coordinate = convert_marks_to_coordinates(action['arguments']['mark_number'])
+                    args.append({'name': action['name'], 'arguments': {'x': coordinate[0], 'y': coordinate[1]}})
+                case AtomicActionType.LongPress:
+                    coordinate = convert_marks_to_coordinates(action['arguments']['mark_number'])
+                    args.append({'name': action['name'], 'arguments': {'x': coordinate[0], 'y': coordinate[1]}, 'duration': action['arguments']['duration']})
+                case AtomicActionType.Swipe:
+                    (x1, y1), (x2, y2) = convert_marks_to_coordinates(action['arguments']['mark_number'])
+                    center_x = (x1 + x2) / 2
+                    center_y = (y1 + y2) / 2
+                    width = x2 - x1
+                    height = y2 - y1
+                    distance = action['arguments']['distance']
+                    match action['arguments']['direction']:
+                        case 'H':
+                            dy = height * abs(distance) / 2
+                            start_y = center_y + dy if distance > 0 else center_y - dy
+                            end_y = center_y - dy if distance > 0 else center_y + dy
+                            args.append({'name': action['name'], 'arguments': {'x1': center_x, 'y1': start_y, 'x2': center_x, 'y2': end_y}})
+                        case 'W':
+                            dx = width * abs(distance) / 2
+                            start_x = center_x + dx if distance > 0 else center_x - dx
+                            end_x = center_x - dx if distance > 0 else center_x + dx
+                            args.append({'name': action['name'], 'arguments': {'x1': start_x, 'y1': center_y, 'x2': end_x, 'y2': center_y}})
+                        case _:
+                            raise RuntimeError(f"Invalid direction: {action['arguments']['direction']}. Must be 'H' or 'W'.")
+                case _:
+                    args.append(action)
+        return args

@@ -2,6 +2,7 @@ import os
 
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.openai_like import OpenAILike
+from loguru import logger
 
 from Citlali.models.openai.client import OpenAIChatClient
 
@@ -50,4 +51,5 @@ class RAGEmbedModelConfig(ModelConfig):
     def build(self):
         if self.api_base is not None:
             os.environ["HF_ENDPOINT"] = self.api_base
+        logger.bind(log_tag="fairy_sys").warning("We are loading the required models remotely from HuggingFace, poor network may cause this step to take a longer time.")
         return HuggingFaceEmbedding(model_name=self.model_name)

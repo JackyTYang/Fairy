@@ -224,9 +224,11 @@ class AppActionDeciderAgent(Agent):
                 case AtomicActionType.Tap:
                     coordinate = convert_marks_to_coordinates(action['arguments']['mark_number'])
                     args.append({'name': action['name'], 'arguments': {'x': coordinate[0], 'y': coordinate[1]}})
+                    break
                 case AtomicActionType.LongPress:
                     coordinate = convert_marks_to_coordinates(action['arguments']['mark_number'])
                     args.append({'name': action['name'], 'arguments': {'x': coordinate[0], 'y': coordinate[1]}, 'duration': action['arguments']['duration']})
+                    break
                 case AtomicActionType.Swipe:
                     (x1, y1), (x2, y2) = convert_marks_to_coordinates(action['arguments']['mark_number'])
                     center_x = (x1 + x2) / 2
@@ -234,19 +236,23 @@ class AppActionDeciderAgent(Agent):
                     width = x2 - x1
                     height = y2 - y1
                     distance = action['arguments']['distance']
+                    duration = action['arguments']['duration']
                     match action['arguments']['direction']:
                         case 'H':
                             dy = height * abs(distance) / 2
                             start_y = center_y + dy if distance > 0 else center_y - dy
                             end_y = center_y - dy if distance > 0 else center_y + dy
-                            args.append({'name': action['name'], 'arguments': {'x1': center_x, 'y1': start_y, 'x2': center_x, 'y2': end_y}})
+                            args.append({'name': action['name'], 'arguments': {'x1': center_x, 'y1': start_y, 'x2': center_x, 'y2': end_y, 'duration': duration}})
+                            break
                         case 'W':
                             dx = width * abs(distance) / 2
                             start_x = center_x + dx if distance > 0 else center_x - dx
                             end_x = center_x - dx if distance > 0 else center_x + dx
-                            args.append({'name': action['name'], 'arguments': {'x1': start_x, 'y1': center_y, 'x2': end_x, 'y2': center_y}})
+                            args.append({'name': action['name'], 'arguments': {'x1': start_x, 'y1': center_y, 'x2': end_x, 'y2': center_y, 'duration': duration}})
+                            break
                         case _:
                             raise RuntimeError(f"Invalid direction: {action['arguments']['direction']}. Must be 'H' or 'W'.")
+                    break
                 case _:
                     args.append(action)
         return args

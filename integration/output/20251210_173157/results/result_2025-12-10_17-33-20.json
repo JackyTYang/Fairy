@@ -1,0 +1,15 @@
+{
+  "success": false,
+  "instruction": "点击鸡肉汉堡栏目",
+  "actions_taken": [],
+  "action_thought": "",
+  "action_expectation": "",
+  "execution_time": 34.491430044174194,
+  "timestamp": "2025-12-10 17:33:20",
+  "output_files": {
+    "screenshot_before": "output/20251210_173157/screenshots/exec_002_before.jpg",
+    "marked_image_before": "output/20251210_173157/marked_images/exec_002_before_marked.jpg",
+    "mark_mapping_before": "output/20251210_173157/marked_images/exec_002_before_mapping.json"
+  },
+  "error": "LLM决策失败"
+}

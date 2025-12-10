@@ -1,4 +1,10 @@
 {
+    "gpt-5": {
+        "vision": true,
+        "function_calling": true,
+        "json_output": true,
+        "family": "GPT_5"
+    },
     "o3-mini-2025-01-31": {
         "vision": false,
         "function_calling": true,

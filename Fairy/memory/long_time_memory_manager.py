@@ -29,13 +29,13 @@ class LongTimeMemoryManager(Worker):
 
         data_path = Path(__file__).resolve().parent.parent / "data"
         self.index = {
-            LongMemoryType.Execution_Tips: VectorStoreIndex.from_documents(SimpleDirectoryReader(data_path / "execution_tips").load_data(),
+            LongMemoryType.Execution_Tips: VectorStoreIndex.from_documents(SimpleDirectoryReader(input_files=[str(data_path / "execution_tips.txt")]).load_data(),
                                                                            embed_model=config.rag_embed_model_client,
                                                                            show_progress=True),
-            LongMemoryType.Execution_ERROR_Tips: VectorStoreIndex.from_documents(SimpleDirectoryReader(data_path / "execution_error_tips").load_data(),
+            LongMemoryType.Execution_ERROR_Tips: VectorStoreIndex.from_documents(SimpleDirectoryReader(input_files=[str(data_path / "execution_error_tips.txt")]).load_data(),
                                                                            embed_model=config.rag_embed_model_client,
                                                                            show_progress=True),
-            LongMemoryType.Plan_Tips: VectorStoreIndex.from_documents(SimpleDirectoryReader(data_path / "plan_tips").load_data(),
+            LongMemoryType.Plan_Tips: VectorStoreIndex.from_documents(SimpleDirectoryReader(input_files=[str(data_path / "plan_tips.txt")]).load_data(),
                                                                            embed_model=config.rag_embed_model_client,
                                                                            show_progress=True),
         }

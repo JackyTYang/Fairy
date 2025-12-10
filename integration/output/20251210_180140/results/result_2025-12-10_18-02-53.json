@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "instruction": "向下滑动",
+  "actions_taken": [
+    {
+      "name": "Swipe",
+      "arguments": {
+        "x1": 971,
+        "y1": 1069.5,
+        "x2": 971,
+        "y2": 694.5,
+        "duration": 500
+      }
+    }
+  ],
+  "action_thought": "当前页面是外卖点餐的商品列表页，右侧为菜品列表是可滚动区域（编号16）。为完成“向下滑动”以继续查找并更完整地看到‘板烧鸡腿堡套餐’，需要在该商品列表区域进行纵向上滑以向下浏览列表内容。",
+  "action_expectation": "商品列表向下滚动，页面显示更多靠下的菜品，‘板烧鸡腿堡套餐’应更加完整或出现在更靠上的位置。",
+  "execution_time": 72.9150128364563,
+  "timestamp": "2025-12-10 18:02:53",
+  "output_files": {
+    "screenshot_before": "output/20251210_180140/screenshots/exec_001_before.jpg",
+    "marked_image_before": "output/20251210_180140/marked_images/exec_001_before_marked.jpg",
+    "mark_mapping_before": "output/20251210_180140/marked_images/exec_001_before_mapping.json",
+    "screenshot_after": "output/20251210_180140/screenshots/exec_001_after.jpg",
+    "marked_image_after": "output/20251210_180140/marked_images/exec_001_after_marked.jpg",
+    "mark_mapping_after": "output/20251210_180140/marked_images/exec_001_after_mapping.json"
+  },
+  "error": null
+}

@@ -10,6 +10,11 @@ class ScreenAccessibilityTree:
     def __init__(self, at_xml: str, target_app: None):
         self.at_xml_raw = at_xml
         self.at_dict_raw = xmltodict.parse(self.at_xml_raw)['hierarchy']['node']
+
+        # 确保at_dict_raw是列表
+        if not isinstance(self.at_dict_raw, list):
+            self.at_dict_raw = [self.at_dict_raw]
+
         self.at_dict = []
         for at_node in self.at_dict_raw:
             if target_app is not None:

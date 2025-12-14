@@ -129,7 +129,7 @@ async def with_execution_tips():
 
 if __name__ == "__main__":
     # 运行基本示例
-    # asyncio.run(basic_example())
+    asyncio.run(basic_example())
 
     # 或运行其他示例
     asyncio.run(sequential_execution())

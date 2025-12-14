@@ -83,7 +83,7 @@ class ScreenStructuredInfoPerception:
             page_desc = None
 
         logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)("Screen Perception"))
-        return screenshot_file_info, SSIPInfo(width, height, [ui_hierarchy_xml, page_desc], non_visual_mode, SoM_mapping=SoM_mapping)
+        return screenshot_file_info, SSIPInfo(width, height, [ui_hierarchy_xml, page_desc, at.at_dict], non_visual_mode, SoM_mapping=SoM_mapping)
 
         # # ocr过滤被遮盖节点
         # ocr_filter_xml = self.ocr_filter.filter(ui_hierarchy_xml,screenshot_file_info)

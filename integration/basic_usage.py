@@ -11,8 +11,8 @@ import sys
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fairy_executor import ExecutorConfig, FairyExecutor
-from fairy_executor.logger import setup_logger
+from Executor import ExecutorConfig, FairyExecutor
+from Executor.logger import setup_logger
 
 
 async def basic_example():
@@ -71,8 +71,8 @@ async def sequential_execution():
 
     # 执行一系列指令
     instructions = [
-        # ("点击麦乐送", "进入点餐界面"),
-        # ("点击鸡肉汉堡栏目", "进入鸡肉汉堡界面"),
+        ("点击麦乐送", "进入点餐界面"),
+        ("点击鸡肉汉堡栏目", "进入鸡肉汉堡界面"),
         ("向下滑动", "找到板烧鸡腿堡套餐"),
         ("将板烧鸡腿堡套餐加入购物车", "加入购物车"),
         ("点击结算按钮", "进行结算")

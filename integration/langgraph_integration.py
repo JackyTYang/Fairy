@@ -11,8 +11,8 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fairy_executor import ExecutorConfig, FairyExecutor, ExecutionOutput
-from fairy_executor.logger import setup_logger
+from Executor import ExecutorConfig, FairyExecutor, ExecutionOutput
+from Executor.logger import setup_logger
 
 # 注意：需要安装 langgraph
 # pip install langgraph langchain-core

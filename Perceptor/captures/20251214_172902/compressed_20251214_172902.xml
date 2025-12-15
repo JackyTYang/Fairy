@@ -1,0 +1,120 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<node index="0" resource-id="com.mcdonalds.gma.cn:id/root_view" class="android.widget.RelativeLayout" content-desc="" enabled="true" bounds="[0,0][1080,2151]" rotation="0" center="[540.0,1075.5]">
+  <node index="0" resource-id="com.mcdonalds.gma.cn:id/mcd_nested_sl" class="android.widget.FrameLayout" content-desc="" enabled="true" bounds="[0,0][1080,2151]" center="[540.0,1075.5]">
+    <node index="1" resource-id="com.mcdonalds.gma.cn:id/mcd_right_campaign" class="android.widget.LinearLayout" content-desc="" enabled="true" bounds="[28,29][1052,432]" center="[540.0,230.5]">
+      <node index="0" class="android.view.ViewGroup" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[382,136][700,412]" center="[541.0,274.0]">
+        <node index="3" class="android.widget.LinearLayout" content-desc="" enabled="true" bounds="[598,172][700,220]" center="[649.0,196.0]">
+          <node index="0" text="¥ " resource-id="com.mcdonalds.gma.cn:id/tv_label_price_prefix" class="android.widget.TextView" content-desc="" enabled="true" bounds="[615,182][630,210]" center="[622.5,196.0]" />
+          <node index="1" text="72.1 " resource-id="com.mcdonalds.gma.cn:id/tv_label_price" class="android.widget.TextView" content-desc="" enabled="true" bounds="[630,172][682,220]" center="[656.0,196.0]" />
+        </node>
+        <node index="4" text="全明星双人分享餐8件套(麦金卡免配)" resource-id="com.mcdonalds.gma.cn:id/tv_title" class="android.widget.TextView" content-desc="" enabled="true" bounds="[397,298][685,348]" center="[541.0,323.0]" />
+        <node index="5" text="¥54.9" resource-id="com.mcdonalds.gma.cn:id/tv_price" class="android.widget.TextView" content-desc="" enabled="true" bounds="[397,336][513,406]" center="[455.0,371.0]" />
+        <node index="6" text="¥127" resource-id="com.mcdonalds.gma.cn:id/tv_separate_price" class="android.widget.TextView" content-desc="" enabled="true" bounds="[519,356][585,400]" center="[552.0,378.0]" />
+        <node index="0" resource-id="com.mcdonalds.gma.cn:id/add_button" class="android.widget.ImageView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[619,337][685,403]" NAF="true" center="[652.0,370.0]" />
+      </node>
+      <node index="1" class="android.view.ViewGroup" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[714,136][1032,412]" center="[873.0,274.0]">
+        <node index="3" class="android.widget.LinearLayout" content-desc="" enabled="true" bounds="[930,172][1032,220]" center="[981.0,196.0]">
+          <node index="0" text="¥ " resource-id="com.mcdonalds.gma.cn:id/tv_label_price_prefix" class="android.widget.TextView" content-desc="" enabled="true" bounds="[946,182][961,210]" center="[953.5,196.0]" />
+          <node index="1" text="31.6 " resource-id="com.mcdonalds.gma.cn:id/tv_label_price" class="android.widget.TextView" content-desc="" enabled="true" bounds="[961,172][1015,220]" center="[988.0,196.0]" />
+        </node>
+        <node index="4" text="爆脆星星堡单人餐(麦金卡免配)" resource-id="com.mcdonalds.gma.cn:id/tv_title" class="android.widget.TextView" content-desc="" enabled="true" bounds="[729,298][1017,348]" center="[873.0,323.0]" />
+        <node index="5" text="¥34.9" resource-id="com.mcdonalds.gma.cn:id/tv_price" class="android.widget.TextView" content-desc="" enabled="true" bounds="[729,336][845,406]" center="[787.0,371.0]" />
+        <node index="6" text="¥66.5" resource-id="com.mcdonalds.gma.cn:id/tv_separate_price" class="android.widget.TextView" content-desc="" enabled="true" bounds="[851,356][930,400]" center="[890.5,378.0]" />
+        <node index="0" resource-id="com.mcdonalds.gma.cn:id/add_button" class="android.widget.ImageView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[951,337][1017,403]" NAF="true" center="[984.0,370.0]" />
+      </node>
+    </node>
+    <node index="0" resource-id="com.mcdonalds.gma.cn:id/menu_list" class="android.widget.LinearLayout" content-desc="" enabled="true" bounds="[0,462][1080,2151]" center="[540.0,1306.5]">
+      <node index="0" resource-id="com.mcdonalds.gma.cn:id/rv_menu" class="androidx.recyclerview.widget.RecyclerView" content-desc="" enabled="true" focusable="true" scrollable="true" bounds="[0,462][201,2151]" center="[100.5,1306.5]">
+        <node index="0" class="android.widget.RelativeLayout" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[0,462][201,683]" center="[100.5,572.5]">
+          <node index="1" text="人气热卖" resource-id="com.mcdonalds.gma.cn:id/tv_name" class="android.widget.TextView" content-desc="" enabled="true" bounds="[0,606][201,650]" center="[100.5,628.0]" />
+          <node index="1" text="新" resource-id="com.mcdonalds.gma.cn:id/item_badge" class="android.widget.TextView" content-desc="" enabled="true" bounds="[116,476][158,518]" center="[137.0,497.0]" />
+        </node>
+        <node index="1" text="麦麦惊喜" resource-id="com.mcdonalds.gma.cn:id/tv_name" class="android.widget.TextView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[0,829][201,870]" center="[100.5,849.5]" />
+        <node index="1" text="大堡口福/&#10;单人餐" resource-id="com.mcdonalds.gma.cn:id/tv_name" class="android.widget.TextView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[0,1030][201,1110]" center="[100.5,1070.0]" />
+        <node index="3" class="android.widget.RelativeLayout" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[0,1125][201,1346]" center="[100.5,1235.5]">
+          <node index="1" text="麦金卡专享" resource-id="com.mcdonalds.gma.cn:id/tv_name" class="android.widget.TextView" content-desc="" enabled="true" bounds="[0,1271][201,1312]" center="[100.5,1291.5]" />
+          <node index="1" text="新" resource-id="com.mcdonalds.gma.cn:id/item_badge" class="android.widget.TextView" content-desc="" enabled="true" bounds="[116,1139][158,1181]" center="[137.0,1160.0]" />
+        </node>
+        <node index="4" class="android.widget.RelativeLayout" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[0,1346][201,1567]" center="[100.5,1456.5]">
+          <node index="1" text="随心拼/&#10;多人餐" resource-id="com.mcdonalds.gma.cn:id/tv_name" class="android.widget.TextView" content-desc="" enabled="true" bounds="[0,1472][201,1552]" center="[100.5,1512.0]" />
+          <node index="1" text="新" resource-id="com.mcdonalds.gma.cn:id/item_badge" class="android.widget.TextView" content-desc="" enabled="true" bounds="[116,1360][158,1402]" center="[137.0,1381.0]" />
+        </node>
+        <node index="5" class="android.widget.RelativeLayout" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[0,1567][201,1788]" center="[100.5,1677.5]">
+          <node index="1" text="鸡肉汉堡/卷" resource-id="com.mcdonalds.gma.cn:id/tv_name" class="android.widget.TextView" content-desc="" enabled="true" bounds="[0,1713][201,1754]" center="[100.5,1733.5]" />
+          <node index="1" text="新" resource-id="com.mcdonalds.gma.cn:id/item_badge" class="android.widget.TextView" content-desc="" enabled="true" bounds="[116,1581][158,1623]" center="[137.0,1602.0]" />
+        </node>
+        <node index="1" text="巨无霸&#10;牛鱼肉堡" resource-id="com.mcdonalds.gma.cn:id/tv_name" class="android.widget.TextView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[0,1914][201,1994]" center="[100.5,1954.0]" />
+        <node index="1" text="安格斯MAX&#10;厚牛堡" resource-id="com.mcdonalds.gma.cn:id/tv_name" class="android.widget.TextView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[0,2135][201,2151]" center="[100.5,2143.0]" />
+        <node index="8" class="android.widget.RelativeLayout" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[0,0][0,0]" center="[0.0,0.0]" />
+      </node>
+      <node index="1" resource-id="com.mcdonalds.gma.cn:id/rv_product" class="androidx.recyclerview.widget.RecyclerView" content-desc="" enabled="true" focusable="true" scrollable="true" bounds="[201,462][1066,2151]" center="[633.5,1306.5]">
+        <node index="0" class="android.widget.LinearLayout" content-desc="{&quot;categoryName&quot;:&quot;人气热卖&quot;,&quot;nextSubmenuName&quot;:&quot;&quot;,&quot;subMenuSize&quot;:0,&quot;submenuName&quot;:&quot;&quot;}" enabled="true" bounds="[216,462][1066,979]" center="[641.0,720.5]">
+          <node index="0" text="人气热卖" resource-id="com.mcdonalds.gma.cn:id/tv_header" class="android.widget.TextView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[264,507][1066,552]" center="[665.0,529.5]" />
+          <node index="1" resource-id="com.mcdonalds.gma.cn:id/rl_content" class="android.widget.RelativeLayout" content-desc="" enabled="true" bounds="[216,567][1066,970]" center="[641.0,768.5]">
+            <node index="0" resource-id="com.mcdonalds.gma.cn:id/rl_item" class="android.widget.RelativeLayout" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[216,567][1066,970]" center="[641.0,768.5]">
+              <node index="2" text="全明星双人分享餐8件套(麦金卡免配)" resource-id="com.mcdonalds.gma.cn:id/tv_name" class="android.widget.TextView" content-desc="" enabled="true" bounds="[629,630][1030,750]" center="[829.5,690.0]" />
+              <node index="4" text="¥ 54.9" resource-id="com.mcdonalds.gma.cn:id/tv_price" class="android.widget.TextView" content-desc="" enabled="true" bounds="[629,837][763,970]" center="[696.0,903.5]" />
+              <node index="5" text="¥127" resource-id="com.mcdonalds.gma.cn:id/tv_separate_price" class="android.widget.TextView" content-desc="" enabled="true" bounds="[769,856][837,970]" center="[803.0,913.0]" />
+            </node>
+            <node index="0" text="优惠购买" resource-id="com.mcdonalds.gma.cn:id/tv_standard" class="android.widget.TextView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[865,853][1033,919]" center="[949.0,886.0]" />
+          </node>
+        </node>
+        <node index="0" resource-id="com.mcdonalds.gma.cn:id/rl_content" class="android.widget.RelativeLayout" content-desc="{&quot;categoryName&quot;:&quot;人气热卖&quot;,&quot;nextSubmenuName&quot;:&quot;&quot;,&quot;subMenuSize&quot;:0,&quot;submenuName&quot;:&quot;&quot;}" enabled="true" bounds="[216,994][1066,1397]" center="[641.0,1195.5]">
+          <node index="0" resource-id="com.mcdonalds.gma.cn:id/rl_item" class="android.widget.RelativeLayout" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[216,994][1066,1397]" center="[641.0,1195.5]">
+            <node index="2" text="爆脆星星堡" resource-id="com.mcdonalds.gma.cn:id/tv_name" class="android.widget.TextView" content-desc="" enabled="true" bounds="[629,1057][854,1119]" center="[741.5,1088.0]" />
+            <node index="3" resource-id="com.mcdonalds.gma.cn:id/ll_label" class="android.widget.LinearLayout" content-desc="" enabled="true" bounds="[629,1134][1030,1182]" center="[829.5,1158.0]">
+              <node index="0" text="酱脆交融" class="android.widget.TextView" content-desc="" enabled="true" bounds="[629,1134][779,1182]" center="[704.0,1158.0]" />
+              <node index="1" text="限时上新" class="android.widget.TextView" content-desc="" enabled="true" bounds="[788,1134][938,1182]" center="[863.0,1158.0]" />
+            </node>
+            <node index="4" text="¥ 13.9" resource-id="com.mcdonalds.gma.cn:id/tv_price" class="android.widget.TextView" content-desc="" enabled="true" bounds="[629,1264][755,1397]" center="[692.0,1330.5]" />
+            <node index="5" text="¥26.5" resource-id="com.mcdonalds.gma.cn:id/tv_separate_price" class="android.widget.TextView" content-desc="" enabled="true" bounds="[761,1283][844,1397]" center="[802.5,1340.0]" />
+          </node>
+          <node index="0" text="选规格" resource-id="com.mcdonalds.gma.cn:id/tv_standard" class="android.widget.TextView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[895,1280][1033,1346]" center="[964.0,1313.0]" />
+        </node>
+        <node index="0" resource-id="com.mcdonalds.gma.cn:id/rl_content" class="android.widget.RelativeLayout" content-desc="{&quot;categoryName&quot;:&quot;人气热卖&quot;,&quot;nextSubmenuName&quot;:&quot;&quot;,&quot;subMenuSize&quot;:0,&quot;submenuName&quot;:&quot;&quot;}" enabled="true" bounds="[216,1421][1066,1824]" center="[641.0,1622.5]">
+          <node index="0" resource-id="com.mcdonalds.gma.cn:id/rl_item" class="android.widget.RelativeLayout" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[216,1421][1066,1824]" center="[641.0,1622.5]">
+            <node index="2" text="爆脆星星盐酥风味脆汁鸡" resource-id="com.mcdonalds.gma.cn:id/tv_name" class="android.widget.TextView" content-desc="" enabled="true" bounds="[629,1484][1030,1604]" center="[829.5,1544.0]" />
+            <node index="3" resource-id="com.mcdonalds.gma.cn:id/ll_label" class="android.widget.LinearLayout" content-desc="" enabled="true" bounds="[629,1619][1030,1667]" center="[829.5,1643.0]">
+              <node index="0" text="盐酥鸡风味" class="android.widget.TextView" content-desc="" enabled="true" bounds="[629,1619][809,1667]" center="[719.0,1643.0]" />
+              <node index="1" text="限时上新" class="android.widget.TextView" content-desc="" enabled="true" bounds="[818,1619][968,1667]" center="[893.0,1643.0]" />
+            </node>
+            <node index="4" text="¥ 16" resource-id="com.mcdonalds.gma.cn:id/tv_price" class="android.widget.TextView" content-desc="" enabled="true" bounds="[629,1691][715,1824]" center="[672.0,1757.5]" />
+            <node NAF="true" index="2" resource-id="com.mcdonalds.gma.cn:id/add_button" class="android.widget.ImageView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[958,1667][1036,1781]" center="[997.0,1724.0]" />
+          </node>
+          <node NAF="true" index="1" resource-id="com.mcdonalds.gma.cn:id/v_add_cart_delegate" class="android.view.View" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[856,1614][1066,1824]" center="[961.0,1719.0]" />
+        </node>
+        <node index="0" resource-id="com.mcdonalds.gma.cn:id/rl_item_container" class="android.widget.RelativeLayout" content-desc="{&quot;categoryName&quot;:&quot;人气热卖&quot;,&quot;nextSubmenuName&quot;:&quot;&quot;,&quot;subMenuSize&quot;:0,&quot;submenuName&quot;:&quot;&quot;}" enabled="true" bounds="[216,1833][1066,2151]" center="[641.0,1992.0]">
+          <node index="0" resource-id="com.mcdonalds.gma.cn:id/rl_item" class="android.widget.RelativeLayout" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[216,1833][1066,2151]" center="[641.0,1992.0]">
+            <node index="1" text="BFF爆脆星星盘" resource-id="com.mcdonalds.gma.cn:id/tv_name" class="android.widget.TextView" content-desc="" enabled="true" bounds="[606,1887][910,1949]" center="[758.0,1918.0]" />
+            <node index="2" text="限定盐酥风味脆汁鸡领衔出“鸡”，一起爆脆登场！" resource-id="com.mcdonalds.gma.cn:id/tv_summary" class="android.widget.TextView" content-desc="" enabled="true" bounds="[606,1955][1030,2035]" center="[818.0,1995.0]" />
+            <node index="3" resource-id="com.mcdonalds.gma.cn:id/ll_label" class="android.widget.LinearLayout" content-desc="" enabled="true" bounds="[606,2050][1030,2098]" center="[818.0,2074.0]">
+              <node index="0" text="爆脆小食" class="android.widget.TextView" content-desc="" enabled="true" bounds="[606,2050][756,2098]" center="[681.0,2074.0]" />
+              <node index="1" text="超值" class="android.widget.TextView" content-desc="" enabled="true" bounds="[765,2050][855,2098]" center="[810.0,2074.0]" />
+            </node>
+            <node index="4" text="¥ 39.9" resource-id="com.mcdonalds.gma.cn:id/tv_price" class="android.widget.TextView" content-desc="" enabled="true" bounds="[606,2134][740,2151]" center="[673.0,2142.5]" />
+            <node NAF="true" index="2" resource-id="com.mcdonalds.gma.cn:id/add_button" class="android.widget.ImageView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[958,2110][1036,2151]" center="[997.0,2130.5]" />
+          </node>
+          <node NAF="true" index="1" resource-id="com.mcdonalds.gma.cn:id/v_add_cart_delegate" class="android.view.View" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[856,2060][1066,2151]" center="[961.0,2105.5]" />
+        </node>
+      </node>
+    </node>
+    <node index="0" resource-id="com.mcdonalds.gma.cn:id/ll_top_bar" class="android.widget.LinearLayout" content-desc="" enabled="true" bounds="[0,0][1080,462]" center="[540.0,231.0]">
+      <node index="0" resource-id="com.mcdonalds.gma.cn:id/top_bar" class="android.view.ViewGroup" content-desc="" enabled="true" bounds="[0,0][1080,261]" center="[540.0,130.5]">
+        <node NAF="true" index="1" resource-id="com.mcdonalds.gma.cn:id/iv_back" class="android.widget.ImageView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[14,132][113,231]" center="[63.5,181.5]" />
+        <node index="0" text="请输入关键字" resource-id="com.mcdonalds.gma.cn:id/tv_search_hit" class="android.widget.TextView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[269,154][693,209]" center="[481.0,181.5]" />
+        <node NAF="true" index="3" resource-id="com.mcdonalds.gma.cn:id/iv_share" class="android.widget.ImageView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[961,132][1060,231]" center="[1010.5,181.5]" />
+      </node>
+      <node index="0" resource-id="com.mcdonalds.gma.cn:id/include_tab_holder" class="android.widget.RelativeLayout" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[0,261][1080,462]" center="[540.0,361.5]">
+        <node index="0" text="复旦大学(江湾新校区)" resource-id="com.mcdonalds.gma.cn:id/tv_address" class="android.widget.TextView" content-desc="" enabled="true" bounds="[28,338][513,400]" center="[270.5,369.0]" />
+        <node index="1" text="预约" resource-id="com.mcdonalds.gma.cn:id/tv_time_type" class="android.widget.TextView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[826,340][1060,403]" center="[943.0,371.5]" />
+      </node>
+    </node>
+  </node>
+  <node index="0" resource-id="com.mcdonalds.gma.cn:id/shop_car_view" class="android.widget.FrameLayout" content-desc="" enabled="true" bounds="[0,1992][1035,2151]" center="[517.5,2071.5]">
+    <node NAF="true" index="0" resource-id="com.mcdonalds.gma.cn:id/rl_shop_package" class="android.widget.RelativeLayout" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[0,1992][210,2151]" center="[105.0,2071.5]" />
+    <node index="1" resource-id="com.mcdonalds.gma.cn:id/rl_price_bar" class="android.widget.RelativeLayout" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[81,2073][1035,2151]" center="[558.0,2112.0]">
+      <node index="0" text="未选购餐品" resource-id="com.mcdonalds.gma.cn:id/tv_total_price" class="android.widget.TextView" content-desc="" enabled="true" bounds="[261,2102][501,2151]" center="[381.0,2126.5]" />
+      <node index="1" text="去结算" resource-id="com.mcdonalds.gma.cn:id/tv_pay" class="android.widget.TextView" content-desc="" clickable="true" enabled="true" focusable="true" bounds="[720,2073][1035,2151]" center="[877.5,2112.0]" />
+    </node>
+  </node>
+</node>

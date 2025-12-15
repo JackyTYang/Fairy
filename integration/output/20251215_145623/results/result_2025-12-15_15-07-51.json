@@ -1,0 +1,65 @@
+{
+  "success": true,
+  "instruction": "将板烧鸡腿堡套餐加入购物车",
+  "actions_taken": [
+    {
+      "name": "Swipe",
+      "arguments": {
+        "x1": 633.5,
+        "y1": 1914.0,
+        "x2": 633.5,
+        "y2": 1254.0,
+        "duration": 500
+      }
+    },
+    {
+      "name": "Tap",
+      "arguments": {
+        "x": 971,
+        "y": 1567
+      }
+    },
+    {
+      "name": "Wait",
+      "arguments": {
+        "wait_time": 2
+      }
+    },
+    {
+      "name": "Tap",
+      "arguments": {
+        "x": 540,
+        "y": 2166
+      }
+    },
+    {
+      "name": "Wait",
+      "arguments": {
+        "wait_time": 2
+      }
+    },
+    {
+      "name": "Finish",
+      "arguments": null
+    }
+  ],
+  "action_thought": "当前为麦当劳商品详情页，显示“板烧鸡腿堡中套餐”，底部有明显的“¥43.5 加入购物车”按钮（标记13）。用户目标是将该套餐加入购物车，默认已选择中套餐，无需额外选择。点击该按钮即可完成加入购物车。",
+  "action_expectation": "页面提示已加入购物车（如出现toast或购物车数量增加），完成将板烧鸡腿堡套餐加入购物车的操作。",
+  "execution_time": 314.82590103149414,
+  "timestamp": "2025-12-15 15:07:51",
+  "output_files": {
+    "screenshot_before": "output/20251215_145623/screenshots/exec_004_before.jpg",
+    "marked_image_before": "output/20251215_145623/marked_images/exec_004_before_marked.jpg",
+    "mark_mapping_before": "output/20251215_145623/marked_images/exec_004_before_mapping.json",
+    "screenshot_after": "output/20251215_145623/screenshots/exec_004_after.jpg",
+    "marked_image_after": "output/20251215_145623/marked_images/exec_004_after_marked.jpg",
+    "mark_mapping_after": "output/20251215_145623/marked_images/exec_004_after_mapping.json"
+  },
+  "error": null,
+  "iterations": 3,
+  "progress_info": {
+    "action_result": "A",
+    "error_potential_causes": "None",
+    "progress_status": "已将板烧鸡腿堡套餐加入购物车：从商品详情页跳转回商品列表页，底部出现购物车结算条（¥43.5、去结算），显示购物车已有1件商品。下一步可继续选购或前往结算。"
+  }
+}

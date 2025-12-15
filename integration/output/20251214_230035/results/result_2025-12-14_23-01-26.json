@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "instruction": "点击麦乐送",
+  "actions_taken": [
+    {
+      "name": "Tap",
+      "arguments": {
+        "x": 292,
+        "y": 600
+      }
+    },
+    {
+      "name": "Wait",
+      "arguments": {
+        "wait_time": 2
+      }
+    }
+  ],
+  "action_thought": "当前为麦当劳APP首页，屏幕中部有两个主要入口：左侧“麦乐送”和右侧“到店取餐”。用户指令是点击“麦乐送”，对应标记为7的大卡片。点击后应进入麦乐送点餐页面。",
+  "action_expectation": "打开麦乐送（外送）点餐入口，进入麦乐送的下单/选择商品页面或相关配送设置页面。",
+  "execution_time": 51.146482944488525,
+  "timestamp": "2025-12-14 23:01:26",
+  "output_files": {
+    "screenshot_before": "output/20251214_230035/screenshots/exec_001_before.jpg",
+    "marked_image_before": "output/20251214_230035/marked_images/exec_001_before_marked.jpg",
+    "mark_mapping_before": "output/20251214_230035/marked_images/exec_001_before_mapping.json",
+    "screenshot_after": "output/20251214_230035/screenshots/exec_001_after.jpg",
+    "marked_image_after": "output/20251214_230035/marked_images/exec_001_after_marked.jpg",
+    "mark_mapping_after": "output/20251214_230035/marked_images/exec_001_after_mapping.json"
+  },
+  "error": null,
+  "iterations": 0
+}

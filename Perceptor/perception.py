@@ -27,15 +27,34 @@ async def main():
         api_key="sk-0535d1b9e92c4c2085f23219330470a0"
     )
 
-    # 3. 创建ScreenFileInfo对象（参考Fairy的实现）
+    # 3. 创建ScreenFileInfo对象
     import os
+    from PIL import Image as PILImage
+
+    # 确保使用绝对路径
+    capture_folder_abs = os.path.abspath(capture_data['capture_folder'])
+
+    # 创建 ScreenFileInfo（不覆盖方法，让它正常工作）
     screenshot_file_info = ScreenFileInfo(
-        file_path=os.path.dirname(capture_data['screenshot_path']),
-        file_name=os.path.basename(capture_data['screenshot_path']).rsplit('.', 1)[0],
-        file_type='png'
+        file_path=capture_folder_abs,
+        file_name=f"screenshot",  # 基础名称
+        file_type='png',
+        file_build_timestamp=capture_data['timestamp']  # 使用时间戳字符串
     )
-    # 覆盖路径方法使用已捕获的文件
-    screenshot_file_info.get_screenshot_fullpath = lambda: capture_data['screenshot_path']
+
+    # 获取原始截图应该保存的路径（带时间戳后缀）
+    original_screenshot_save_path = screenshot_file_info.get_screenshot_fullpath()
+
+    # 将捕获的截图移动/复制到正确的路径
+    if os.path.abspath(capture_data['screenshot_path']) != original_screenshot_save_path:
+        original_img = PILImage.open(capture_data['screenshot_path'])
+        original_img.save(original_screenshot_save_path)
+        print(f"原始截图已保存: {original_screenshot_save_path}")
+        # 删除捕获时的临时文件
+        if os.path.exists(capture_data['screenshot_path']) and capture_data['screenshot_path'] != original_screenshot_save_path:
+            os.remove(capture_data['screenshot_path'])
+    else:
+        print(f"原始截图路径: {original_screenshot_save_path}")
 
     ui_xml = capture_data['ui_xml']
 
@@ -51,26 +70,33 @@ async def main():
         target_app=None
     )
 
-    # 6. 保存结果
+    # 6. 压缩XML（使用 XMLCompressor）
+    print("\n开始压缩XML...")
+    from tools import XMLCompressor
+    compressor = XMLCompressor(output_dir=capture_data['capture_folder'])
+    compressed_xml_path, compressed_txt_path = await compressor.compress_xml(
+        ui_xml=ui_xml,
+        timestamp=capture_data['timestamp'],
+        target_app=None
+    )
+
+    # 7. 保存结果
     print("\n感知完成，保存结果...")
     import json
 
-    # 原始XML
-    raw_xml_path = os.path.join(os.path.dirname(capture_data['screenshot_path']),
-                                f"raw_ui_{capture_data['timestamp']}.xml")
-    with open(raw_xml_path, 'w', encoding='utf-8') as f:
-        f.write(perception_infos.infos[0])
-
     # SoM映射
-    som_mapping_path = os.path.join(os.path.dirname(capture_data['screenshot_path']),
+    som_mapping_path = os.path.join(capture_data['capture_folder'],
                                     f"som_mapping_{capture_data['timestamp']}.json")
     with open(som_mapping_path, 'w', encoding='utf-8') as f:
         json.dump(perception_infos.SoM_mapping, f, indent=2)
 
-    print(f"\n已保存:")
-    print(f"  原始XML: {raw_xml_path}")
-    print(f"  SoM映射: {som_mapping_path}")
-    print(f"  标记图片: {screenshot_file_info.get_screenshot_fullpath()}")
+    print(f"\n✅ 所有文件已保存到: {capture_data['capture_folder']}")
+    print(f"  📸 原始截图: {os.path.basename(original_screenshot_save_path)}")
+    print(f"  🎯 标注截图: screenshot_{capture_data['timestamp']}_marked.png")
+    print(f"  📄 原始XML: {os.path.basename(capture_data['xml_path'])}")
+    print(f"  📦 压缩XML: {os.path.basename(compressed_xml_path)}")
+    print(f"  📝 压缩TXT: {os.path.basename(compressed_txt_path)}")
+    print(f"  🗺️  SoM映射: {os.path.basename(som_mapping_path)}")
 
     # 示例：显示前5个标记
     print(f"\n前5个SoM标记:")

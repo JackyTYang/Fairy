@@ -1,0 +1,30 @@
+{
+  "success": true,
+  "instruction": "点击鸡肉汉堡栏目",
+  "actions_taken": [
+    {
+      "name": "Swipe",
+      "arguments": {
+        "x1": 641,
+        "y1": 2236.5,
+        "x2": 641,
+        "y2": 1861.5,
+        "duration": 500
+      }
+    }
+  ],
+  "action_thought": "We need to enter the Chicken Burger category. The current screen shows the McDonald's ordering page with a left-side category list, but '鸡肉汉堡' is not visible. Scrolling the main content area should also scroll the left category list to reveal more categories. I will swipe up in the main scrollable area to look for '鸡肉汉堡'.",
+  "action_expectation": "The page scrolls down, revealing more categories on the left, and the '鸡肉汉堡' category should appear so it can be tapped next.",
+  "execution_time": 58.019206047058105,
+  "timestamp": "2025-12-14 23:00:16",
+  "output_files": {
+    "screenshot_before": "output/20251214_225829/screenshots/exec_002_before.jpg",
+    "marked_image_before": "output/20251214_225829/marked_images/exec_002_before_marked.jpg",
+    "mark_mapping_before": "output/20251214_225829/marked_images/exec_002_before_mapping.json",
+    "screenshot_after": "output/20251214_225829/screenshots/exec_002_after.jpg",
+    "marked_image_after": "output/20251214_225829/marked_images/exec_002_after_marked.jpg",
+    "mark_mapping_after": "output/20251214_225829/marked_images/exec_002_after_mapping.json"
+  },
+  "error": null,
+  "iterations": 0
+}

@@ -327,7 +327,7 @@ class XMLCompressor:
 if __name__ == "__main__":
     import asyncio
 
-    async def main():
+    async def compress():
         # 1. 捕获屏幕
         print("=" * 50)
         print("开始捕获屏幕...")
@@ -360,4 +360,4 @@ if __name__ == "__main__":
         print(f"  - 截图: {os.path.basename(capture_data['screenshot_path'])}")
         print("=" * 50)
 
-    asyncio.run(main())
+    asyncio.run(compress())

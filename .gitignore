@@ -10,3 +10,9 @@ __pycache__
 
 # 忽略 log 文件
 *.log
+
+# 忽略临时文件和输出目录
+/tmp
+/output
+integration/output/
+integration/tmp/

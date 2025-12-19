@@ -6,10 +6,26 @@ from sympy import capture
 
 
 class UIAutomatorCapture:
-    def __init__(self, adb_path="/Users/jackyyang/android_sdk/platform-tools/adb", output_dir="./captures"):
+    def __init__(self, adb_path="/Users/jackyyang/android_sdk/platform-tools/adb", output_dir="./captures", use_singleton=False, device_id=None):
+        """
+        Args:
+            adb_path: ADB路径
+            output_dir: 输出目录
+            use_singleton: 是否使用单例设备连接（uiautomator2）
+            device_id: 设备ID
+        """
         self.adb_path = adb_path
         self.output_dir = output_dir
+        self.use_singleton = use_singleton
+        self.device_id = device_id
         os.makedirs(output_dir, exist_ok=True)
+
+        if use_singleton:
+            # 使用单例 uiautomator2 设备
+            from shared import DeviceManager
+            self.dev = DeviceManager.get_device(device_id)
+        else:
+            self.dev = None
 
     def capture(self):
         """捕获当前屏幕的XML和截图"""
@@ -19,6 +35,47 @@ class UIAutomatorCapture:
         capture_folder = os.path.join(self.output_dir, timestamp)
         os.makedirs(capture_folder, exist_ok=True)
 
+        if self.use_singleton:
+            # 使用 uiautomator2 单例设备
+            return self._capture_with_u2(timestamp, capture_folder)
+        else:
+            # 使用 adb 命令
+            return self._capture_with_adb(timestamp, capture_folder)
+
+    def _capture_with_u2(self, timestamp, capture_folder):
+        """使用 uiautomator2 捕获"""
+        # 截图文件路径
+        screenshot_filename = f"screenshot_{timestamp}.png"
+        screenshot_local_path = os.path.abspath(os.path.join(capture_folder, screenshot_filename))
+
+        # XML文件路径
+        xml_filename = f"ui_dump_{timestamp}.xml"
+        xml_local_path = os.path.abspath(os.path.join(capture_folder, xml_filename))
+
+        # 1. 捕获截图
+        self.dev.screenshot(screenshot_local_path)
+
+        # 2. 捕获UI XML
+        ui_xml = self.dev.dump_hierarchy()
+        with open(xml_local_path, 'w', encoding='utf-8') as f:
+            f.write(ui_xml)
+
+        # 3. 从截图文件读取尺寸
+        from PIL import Image
+        img = Image.open(screenshot_local_path)
+        width, height = img.size
+
+        return {
+            "screenshot_path": screenshot_local_path,
+            "xml_path": xml_local_path,
+            "ui_xml": ui_xml,
+            "screen_size": [width, height],
+            "timestamp": timestamp,
+            "capture_folder": capture_folder
+        }
+
+    def _capture_with_adb(self, timestamp, capture_folder):
+        """使用 adb 命令捕获"""
         # XML文件路径
         xml_filename = f"ui_dump_{timestamp}.xml"
         xml_local_path = os.path.abspath(os.path.join(capture_folder, xml_filename))

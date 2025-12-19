@@ -12,13 +12,12 @@ from Citlali.models.entity import ChatMessage
 from Citlali.models.openai.client import OpenAIChatClient
 from Fairy.entity.info_entity import ScreenInfo, ActionInfo, PlanInfo
 from Fairy.tools.mobile_controller.action_type import AtomicActionType, ATOMIC_ACTION_SIGNITURES
-from Fairy.tools.mobile_controller.ui_automator_tools.mobile_control_tool import UiAutomatorMobileController
-from Fairy.tools.mobile_controller.ui_automator_tools.screen_capture_tool import UiAutomatorMobileScreenCapturer
 from Fairy.tools.screen_perceptor.ssip_new.perceptor.perceptor import ScreenStructuredInfoPerception
 
 from .config import ExecutorConfig
 from .output import ExecutionOutput, OutputManager
 from .logger import get_logger
+from .singleton_wrappers import SingletonUiAutomatorMobileController, SingletonUiAutomatorMobileScreenCapturer
 
 logger = get_logger("FairyExecutor")
 
@@ -67,10 +66,10 @@ class FairyExecutor:
             "temperature": config.core_model.temperature
         })
 
-        # 初始化底层工具
+        # 初始化底层工具（使用单例设备连接）
         fairy_config = self._create_fairy_config()
-        self.controller = UiAutomatorMobileController(fairy_config)
-        self.screen_capturer = UiAutomatorMobileScreenCapturer(fairy_config)
+        self.controller = SingletonUiAutomatorMobileController(fairy_config)
+        self.screen_capturer = SingletonUiAutomatorMobileScreenCapturer(fairy_config)
 
         # 初始化屏幕感知器
         if config.perception.visual_model:
@@ -216,16 +215,12 @@ class FairyExecutor:
                 logger.info(f"[{execution_id}] 决策完成，准备执行 {len(action_info.actions)} 个动作")
                 final_action_info = action_info
 
-                # 3. 执行动作
-                await self._execute_actions(action_info.actions)
+                # 3. 执行动作并立刻捕获屏幕（捕获短暂的toast）
+                screen_after = await self._execute_actions_and_capture(action_info.actions, execution_id)
                 all_actions_taken.extend(action_info.actions)
-                logger.success(f"[{execution_id}] 动作执行完成")
+                logger.success(f"[{execution_id}] 动作执行并截图完成")
 
-                # 4. 获取执行后的屏幕信息（after）
-                logger.info(f"[{execution_id}] 获取执行后屏幕信息...")
-                screen_after = await self._get_screen_info()
-
-                # 5. ⭐ 反思：判断任务是否完成
+                # 4. ⭐ 反思：判断任务是否完成
                 if enable_reflection:
                     progress_info = await self._reflect_on_execution(
                         instruction=instruction,
@@ -316,6 +311,7 @@ class FairyExecutor:
                 timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 output_files=output_files if 'output_files' in locals() else {},
                 screen_before=screen_before if 'screen_before' in locals() else None,
+                screen_after=screen_after if 'screen_after' in locals() else None,  # ⭐ 添加screen_after
                 error=str(e),
                 iterations=len(all_iterations) if 'all_iterations' in locals() else 0
             )
@@ -341,6 +337,7 @@ class FairyExecutor:
                 timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 output_files=output_files if 'output_files' in locals() else {},
                 screen_before=screen_before if 'screen_before' in locals() else None,
+                screen_after=screen_after if 'screen_after' in locals() else None,  # ⭐ 添加screen_after
                 error=str(e)
             )
 
@@ -744,6 +741,154 @@ class FairyExecutor:
 
         await self.controller.execute_actions(actions)
 
+    async def _execute_actions_and_capture(self, actions: List[Dict], execution_id: str):
+        """
+        执行动作并进行两次截图（捕获短暂提示 + 稳定页面）
+
+        执行流程：
+        1. 执行主要动作
+        2. 等待0.2秒 → 第一次快速截图（捕获快速消失的bubble/toast）
+        3. 等待到5秒 → 第二次截图（页面完全稳定/加载完成）
+        4. 两张截图都保留，传给Reflector让LLM判断
+
+        Args:
+            actions: 动作列表
+            execution_id: 执行ID
+
+        Returns:
+            ScreenInfo: 执行后的屏幕信息（包含两次截图）
+        """
+        import asyncio
+        import time
+        from Fairy.entity.info_entity import ScreenFileInfo
+
+        if not actions:
+            logger.warning("动作列表为空，无操作执行")
+            return None
+
+        logger.info(f"执行 {len(actions)} 个动作（双重截图模式）")
+
+        # 找到第一个非Wait动作
+        first_action_idx = -1
+        for i, action in enumerate(actions):
+            logger.info(f"动作 {i+1}: {action['name']} - 参数: {action.get('arguments', {})}")
+            if action['name'] != 'Wait' and first_action_idx == -1:
+                first_action_idx = i
+
+        if first_action_idx == -1:
+            # 所有动作都是Wait，直接执行
+            await self.controller.execute_actions(actions)
+            return await self._get_screen_info()
+
+        # 执行第一个操作动作
+        first_action = actions[first_action_idx]
+        logger.info(f"[{execution_id}] 执行主要动作: {first_action['name']}")
+        await self.controller.execute_actions([first_action])
+
+        # ⭐ 第一次截图：等待0.2秒后立刻截图（捕获快速bubble）
+        logger.info(f"[{execution_id}] 等待0.2秒后进行第一次截图（捕获快速提示）...")
+        await asyncio.sleep(0.2)
+
+        capture_time = time.time()
+        # 快速截图1：跳过5秒等待，直接截图+XML
+        screenshot_file_info_1 = ScreenFileInfo(
+            self.screen_capturer.screenshot_temp_path,
+            f"{self.screen_capturer.screenshot_filename}_immediate",
+            'png'
+        )
+        self.controller.dev.screenshot(screenshot_file_info_1.get_screenshot_fullpath())
+        ui_xml_1 = self.controller.dev.dump_hierarchy()
+        logger.info(f"[{execution_id}] 第一次截图完成，耗时: {time.time() - capture_time:.2f}秒")
+
+        # ⭐ 第二次截图：等待到5秒（总共5秒 - 0.2秒 = 4.8秒）
+        logger.info(f"[{execution_id}] 等待到5秒后进行第二次截图（页面稳定）...")
+        await asyncio.sleep(4.8)
+
+        capture_time = time.time()
+        # 快速截图2
+        screenshot_file_info_2 = ScreenFileInfo(
+            self.screen_capturer.screenshot_temp_path,
+            self.screen_capturer.screenshot_filename,  # 主截图
+            'png'
+        )
+        self.controller.dev.screenshot(screenshot_file_info_2.get_screenshot_fullpath())
+        ui_xml_2 = self.controller.dev.dump_hierarchy()
+        logger.info(f"[{execution_id}] 第二次截图完成，耗时: {time.time() - capture_time:.2f}秒")
+
+        # 获取其他信息（Activity、键盘状态）
+        logger.info(f"[{execution_id}] 获取Activity和键盘状态...")
+        activity_info = await self.screen_capturer.get_current_activity()
+        keyboard_status = await self.screen_capturer.get_keyboard_activation_status()
+
+        # 压缩两张图
+        screenshot_file_info_2.compress_image_to_jpeg()
+        screenshot_file_info_1.compress_image_to_jpeg()
+
+        # ⭐ 屏幕感知：对两张截图都进行完整的SoM标记处理
+        if self.screen_perceptor is not None:
+            # 1. 处理stable截图（5秒）
+            logger.info(f"[{execution_id}] 开始屏幕感知（stable截图，5秒）...")
+            screenshot_file_info_2, perception_infos_stable = await self.screen_perceptor.get_perception_infos(
+                screenshot_file_info_2,
+                ui_xml_2,
+                non_visual_mode=self.config.perception.non_visual_mode,
+                target_app=activity_info.package_name
+            )
+
+            # 2. 处理immediate截图（0.2秒）- 完整的SoM标记
+            logger.info(f"[{execution_id}] 开始屏幕感知（immediate截图，0.2秒）...")
+            screenshot_file_info_1, perception_infos_immediate = await self.screen_perceptor.get_perception_infos(
+                screenshot_file_info_1,
+                ui_xml_1,
+                non_visual_mode=self.config.perception.non_visual_mode,
+                target_app=activity_info.package_name
+            )
+            logger.info(f"[{execution_id}] 两张截图的SoM标记都已完成")
+        else:
+            from Fairy.tools.screen_perceptor.entity import ScreenPerceptionInfo
+            perception_infos_stable = ScreenPerceptionInfo(
+                width=screenshot_file_info_2.get_screenshot_Image_file().width,
+                height=screenshot_file_info_2.get_screenshot_Image_file().height,
+                perception_infos=ui_xml_2,
+                keyboard_status=keyboard_status,
+                use_set_of_marks_mapping=False
+            )
+            perception_infos_immediate = ScreenPerceptionInfo(
+                width=screenshot_file_info_1.get_screenshot_Image_file().width,
+                height=screenshot_file_info_1.get_screenshot_Image_file().height,
+                perception_infos=ui_xml_1,
+                keyboard_status=keyboard_status,
+                use_set_of_marks_mapping=False
+            )
+
+        # 构建ScreenInfo（主要用stable）
+        from Fairy.entity.info_entity import ScreenInfo
+        screen_after = ScreenInfo(screenshot_file_info_2, perception_infos_stable, activity_info)
+
+        # ⭐ 附加immediate截图的完整信息（包括标记后的截图、SoM mapping等）
+        screen_after.immediate_screenshot_path = screenshot_file_info_1.get_screenshot_fullpath()
+        screen_after.immediate_marked_screenshot_path = screenshot_file_info_1.get_screenshot_fullpath().replace('.jpeg', '_marked.jpeg')
+        screen_after.immediate_xml = ui_xml_1
+        screen_after.immediate_perception_infos = perception_infos_immediate
+        screen_after.capture_timing = {
+            'immediate': '0.2秒（捕获快速提示）',
+            'stable': '5秒（页面稳定）'
+        }
+
+        logger.info(f"[{execution_id}] 完整屏幕信息获取完成（包含两次截图）")
+
+        # 执行剩余的非Wait动作
+        remaining_actions = [
+            action for i, action in enumerate(actions)
+            if i > first_action_idx and action['name'] != 'Wait'
+        ]
+
+        if remaining_actions:
+            logger.info(f"[{execution_id}] 执行剩余 {len(remaining_actions)} 个动作")
+            await self.controller.execute_actions(remaining_actions)
+
+        return screen_after
+
     async def _reflect_on_execution(
         self,
         instruction: str,
@@ -790,6 +935,15 @@ class FairyExecutor:
         images = []
         if not self.config.perception.non_visual_mode:
             images.append(screen_before.screenshot_file_info.get_screenshot_Image_file())
+
+            # ⭐ 添加执行后的两张截图（0.2秒立刻截图 + 5秒稳定截图）
+            if hasattr(screen_after, 'immediate_screenshot_path') and screen_after.immediate_screenshot_path:
+                # 加载立刻截图（0.2秒）
+                from PIL import Image
+                immediate_img = Image.open(screen_after.immediate_screenshot_path)
+                images.append(immediate_img)
+
+            # 主截图（5秒稳定）
             images.append(screen_after.screenshot_file_info.get_screenshot_Image_file())
 
         # 调用 LLM
@@ -887,24 +1041,55 @@ class FairyExecutor:
         current_screen: ScreenInfo
     ) -> str:
         """构建屏幕对比的 prompt 部分"""
+        # ⭐ 检查是否有双重截图
+        has_dual_screenshots = hasattr(current_screen, 'immediate_screenshot_path') and current_screen.immediate_screenshot_path
+
         if not self.config.perception.non_visual_mode:
-            screenshot_prompt = "The two attached images are two screenshots of your phone before and after your last action to reveal the change in status"
+            if has_dual_screenshots:
+                screenshot_prompt = "The attached images are THREE screenshots of your phone:\n" \
+                                    "1. BEFORE the action (baseline)\n" \
+                                    "2. IMMEDIATELY AFTER the action (captured at 0.2 seconds - may contain fast-disappearing toast/bubble notifications)\n" \
+                                    "3. STABLE STATE after the action (captured at 5 seconds - page fully loaded)\n" \
+                                    "These screenshots reveal the complete change in status, including transient UI elements."
+            else:
+                screenshot_prompt = "The two attached images are two screenshots of your phone before and after your last action to reveal the change in status"
         else:
-            screenshot_prompt = "The following two text descriptions (e.g. JSON or XML) are converted from two screenshots of your phone before and after your last action to reveal the change in status"
+            if has_dual_screenshots:
+                screenshot_prompt = "The following THREE text descriptions (e.g. JSON or XML) are converted from screenshots:\n" \
+                                    "1. BEFORE the action\n" \
+                                    "2. IMMEDIATELY AFTER (0.2s - captures toast/bubble)\n" \
+                                    "3. STABLE STATE (5s - page fully loaded)"
+            else:
+                screenshot_prompt = "The following two text descriptions (e.g. JSON or XML) are converted from two screenshots of your phone before and after your last action to reveal the change in status"
 
         prompt = f"---\n"
         prompt += previous_screen.perception_infos.get_screen_info_note_prompt(screenshot_prompt)
         prompt += f"\n"
 
         # Before 屏幕
-        prompt += f"- Page before the Action: {previous_screen.current_activity_info.activity}\n"
-        prompt += previous_screen.perception_infos.get_screen_info_prompt("before the Action")
+        prompt += f"- Page BEFORE the Action: {previous_screen.current_activity_info.activity}\n"
+        prompt += previous_screen.perception_infos.get_screen_info_prompt("BEFORE the Action")
 
-        # After 屏幕
-        prompt += f"- Page after the Action: {current_screen.current_activity_info.activity}\n"
-        prompt += current_screen.perception_infos.get_screen_info_prompt("after the Action")
+        # ⭐ 如果有双重截图，说明两张执行后截图的区别
+        if has_dual_screenshots:
+            prompt += f"- Page IMMEDIATELY AFTER the Action (0.2 seconds - captures transient elements): {current_screen.current_activity_info.activity}\n"
+            prompt += f"  IMPORTANT: This screenshot was taken 0.2 seconds after the action to capture any fast-disappearing toast notifications, bubble messages, or loading indicators.\n"
+            prompt += f"  If you see any toast/bubble/popup in this image but not in the next one, it means the notification disappeared quickly.\n"
+            prompt += f"\n"
 
-        prompt += f"Please scrutinize the above screen information to infer the type of previous and current pages (e.g., home page, search page, results page, details page, etc.) and thus the main function of these pages. Please carefully identify whether the page has jumped or not! This will help you to find the mistakes in the execution just now and avoid the wrong plan.\n"
+        # After 屏幕（稳定状态）
+        if has_dual_screenshots:
+            prompt += f"- Page STABLE STATE after the Action (5 seconds - fully loaded): {current_screen.current_activity_info.activity}\n"
+        else:
+            prompt += f"- Page after the Action: {current_screen.current_activity_info.activity}\n"
+
+        prompt += current_screen.perception_infos.get_screen_info_prompt("after the Action (stable state)")
+
+        prompt += f"\nPlease scrutinize the above screen information to infer the type of previous and current pages (e.g., home page, search page, results page, details page, etc.) and thus the main function of these pages. Please carefully identify whether the page has jumped or not! This will help you to find the mistakes in the execution just now and avoid the wrong plan.\n"
+
+        if has_dual_screenshots:
+            prompt += f"\nIMPORTANT: Pay special attention to the IMMEDIATE AFTER screenshot (0.2s) - if there are any toast/bubble notifications, loading indicators, or error messages that appear only in this screenshot and not in the STABLE STATE screenshot, these are critical feedback from the app about the action result.\n"
+
         prompt += f"\n"
 
         return prompt

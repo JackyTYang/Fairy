@@ -1,4 +1,10 @@
 {
+    "gpt-5.1": {
+        "vision": true,
+        "function_calling": true,
+        "json_output": true,
+        "family": "GPT_5"
+    },
     "gpt-5": {
         "vision": true,
         "function_calling": true,

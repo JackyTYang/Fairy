@@ -38,11 +38,19 @@ async def basic_exploration():
     explorer = FairyExplorer(config)
 
     # 4. 定义探索目标
+    # target = ExplorationTarget(
+    #     app_name="麦当劳",
+    #     app_package="com.mcdonalds.gma.cn",  # 中国版麦当劳包名
+    #     app_description="提供点餐、外卖、优惠券等功能的快餐连锁应用",
+    #     feature_to_explore="麦乐送点餐功能。",
+    #     starting_state="麦乐送界面"
+    # )
+
     target = ExplorationTarget(
-        app_name="麦当劳",
-        app_package="com.mcdonalds.gma.cn",  # 中国版麦当劳包名
-        app_description="提供点餐、外卖、优惠券等功能的快餐连锁应用",
-        feature_to_explore="外卖点餐功能",
+        app_name="Amaze",
+        app_package="com.amaze.filemanager",  # 中国版麦当劳包名
+        app_description="文件管理系统",
+        feature_to_explore="文件（夹）复制剪切功能，测试复制（剪切）到不同层级文件夹的情况",
         starting_state="首页"
     )
 
@@ -117,8 +125,8 @@ async def custom_exploration():
 
 
 if __name__ == "__main__":
-    # 运行基础示例
-    print("示例1: 基础探索")
+    # 开始探索应用程序
+    print("开始探索")
     asyncio.run(basic_exploration())
 
     # 或运行自定义示例

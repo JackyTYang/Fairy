@@ -16,6 +16,64 @@ class ScreenStructuredInfoPerception:
         self.text_summarizer = TextSummarizer(text_summarization_model_config) if text_summarization_model_config is not None else None
         self.log_t = LogTemplate(self,"ScreenStructuredInfoPerception")  # 日志模板
 
+    def _generate_compressed_txt_from_nodes(self, nodes_need_marked):
+        """从标记节点信息生成 compressed_txt（确保索引与SoM_mapping一致）
+
+        Args:
+            nodes_need_marked: 包含clickable和scrollable节点信息的字典
+
+        Returns:
+            str: 生成的compressed文本描述
+        """
+        lines = []
+
+        # Clickable 元素（按索引排序确保顺序一致）
+        for idx in sorted(nodes_need_marked['clickable']['node_info_list'].keys()):
+            info = nodes_need_marked['clickable']['node_info_list'][idx]
+
+            # 简化类名
+            class_name = info['class'].split('.')[-1] if info['class'] else 'Unknown'
+
+            line_parts = [f"Mark {idx}:", class_name]
+
+            # 添加 resource-id
+            if info.get('resource-id'):
+                line_parts.append(f"({info['resource-id']})")
+
+            # 添加文本
+            if info.get('text') and info['text'].strip():
+                line_parts.append(f"[{info['text']}]")
+
+            # 添加中心坐标
+            center = info.get('center')
+            if center:
+                line_parts.append(f"[Center: {center}]")
+
+            # 添加属性
+            props = info.get('properties', [])
+            if props:
+                line_parts.append(f"[{', '.join(props)}]")
+
+            lines.append("  ".join(line_parts))
+
+        # Scrollable 元素（按索引排序）
+        for idx in sorted(nodes_need_marked['scrollable']['node_info_list'].keys()):
+            info = nodes_need_marked['scrollable']['node_info_list'][idx]
+
+            class_name = info['class'].split('.')[-1] if info['class'] else 'Unknown'
+            bounds = info.get('bounds')
+
+            line_parts = [f"Mark {idx}:", class_name]
+
+            if bounds:
+                line_parts.append(f"[Bounds: {bounds}]")
+
+            line_parts.append("[scrollable]")
+
+            lines.append("  ".join(line_parts))
+
+        return "\n".join(lines)
+
     async def get_perception_infos(self, raw_screenshot_file_info: ScreenFileInfo, ui_hierarchy_xml, non_visual_mode=False, target_app=None, use_clickable_node_summaries=True):
         logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerStart)("Screen Perception"))
         logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.Notice)("Analyzing Screen Accessibility Tree..."))
@@ -24,9 +82,10 @@ class ScreenStructuredInfoPerception:
         # 确定宽高
         screenshot_image = raw_screenshot_file_info.get_screenshot_PILImage_file()
         width, height = screenshot_image.size
-        
+
         if non_visual_mode: # 如果是非图像模式（适用于不具备视觉能力的模型）
             SoM_mapping = None
+            som_compressed_txt = None
             screenshot_file_info = raw_screenshot_file_info
         else:
             logger.bind(log_tag="fairy_sys").debug(self.log_t.log(LogEventType.Notice)("Adding Mark to screenshots..."))
@@ -36,6 +95,9 @@ class ScreenStructuredInfoPerception:
             SoM_mapping = {}
             SoM_mapping.update(nodes_need_marked['clickable']['node_center_list'])
             SoM_mapping.update(nodes_need_marked['scrollable']['node_bounds_list'])
+
+            # ⭐ 生成与SoM_mapping索引对应的compressed文本
+            som_compressed_txt = self._generate_compressed_txt_from_nodes(nodes_need_marked)
 
             # 标记可点击元素 (红色框，标签在左上角)
             screenshot_image_marked = draw_transparent_boxes_with_labels(
@@ -83,7 +145,7 @@ class ScreenStructuredInfoPerception:
             page_desc = None
 
         logger.bind(log_tag="fairy_sys").info(self.log_t.log(LogEventType.WorkerCompleted)("Screen Perception"))
-        return screenshot_file_info, SSIPInfo(width, height, [ui_hierarchy_xml, page_desc, at.at_dict], non_visual_mode, SoM_mapping=SoM_mapping)
+        return screenshot_file_info, SSIPInfo(width, height, [ui_hierarchy_xml, page_desc, at.at_dict], non_visual_mode, SoM_mapping=SoM_mapping, som_compressed_txt=som_compressed_txt)
 
         # # ocr过滤被遮盖节点
         # ocr_filter_xml = self.ocr_filter.filter(ui_hierarchy_xml,screenshot_file_info)

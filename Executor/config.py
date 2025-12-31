@@ -64,6 +64,7 @@ class PerceptionConfig:
     text_summary_model: Optional[Any] = None  # Fairy ModelConfig对象
     non_visual_mode: bool = False
     save_marked_images: bool = True
+    enable_immediate_screenshot: bool = False  # ⭐ 是否启用立刻截图（0.2秒），默认关闭
 
     @classmethod
     def from_env(cls) -> 'PerceptionConfig':
@@ -92,7 +93,8 @@ class PerceptionConfig:
             visual_model=visual_model,
             text_summary_model=text_summary_model,
             non_visual_mode=os.getenv("NON_VISUAL_MODE", "False").lower() == "true",
-            save_marked_images=os.getenv("SAVE_MARKED_IMAGES", "True").lower() == "true"
+            save_marked_images=os.getenv("SAVE_MARKED_IMAGES", "True").lower() == "true",
+            enable_immediate_screenshot=os.getenv("ENABLE_IMMEDIATE_SCREENSHOT", "False").lower() == "true"  # ⭐ 默认关闭立刻截图
         )
 
 

@@ -45,6 +45,9 @@ class StateTracker:
         self.navigation_path: List[str] = ["首页"]
         self.step_counter = 0
 
+        # ⭐ 新增：记录实际执行的计划步骤
+        self.executed_plan_steps = []
+
         logger.info(f"StateTracker初始化，输出目录: {self.output_dir}")
 
     def create_step_output_dir(self, step_id: str) -> Path:
@@ -217,3 +220,53 @@ class StateTracker:
         """
         logger.warning("save_state_tree() 暂未实现")
         pass
+
+    def record_executed_step(
+        self,
+        step: ExplorationStep,
+        plan_source: str,
+        result_status: str,
+        executed_at: str = None
+    ):
+        """记录实际执行的计划步骤
+
+        Args:
+            step: 执行的步骤
+            plan_source: 计划来源（"initial_plan" 或 "replan_after_step_X"）
+            result_status: 执行结果（"success" 或 "failed"）
+            executed_at: 执行时间戳（可选，默认当前时间）
+        """
+        if executed_at is None:
+            executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        step_record = {
+            "step_id": step.step_id,
+            "instruction": step.instruction,
+            "sub_goal": step.sub_goal,
+            "plan_source": plan_source,
+            "executed_at": executed_at,
+            "result_status": result_status,
+            "enable_reflection": step.enable_reflection,
+            "max_iterations": step.max_iterations
+        }
+
+        self.executed_plan_steps.append(step_record)
+        logger.debug(f"记录实际执行步骤: {step.step_id} from {plan_source}")
+
+    def save_executed_plan(self):
+        """保存实际执行的计划到文件"""
+        executed_plan_file = self.output_dir / "executed_plan.json"
+
+        executed_plan_data = {
+            "description": "记录从头到尾实际执行的每个步骤的计划（来自初始计划或各次replan后的第一步）",
+            "total_steps": len(self.executed_plan_steps),
+            "steps": self.executed_plan_steps,
+            "generated_at": datetime.now().isoformat()
+        }
+
+        with open(executed_plan_file, 'w', encoding='utf-8') as f:
+            json.dump(executed_plan_data, f, indent=2, ensure_ascii=False)
+
+        logger.success(f"✓ 实际执行计划已保存: {executed_plan_file}")
+        logger.info(f"  - 总步骤数: {len(self.executed_plan_steps)}")
+

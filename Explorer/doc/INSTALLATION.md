@@ -227,7 +227,7 @@ asyncio.run(test())
 
 配置完成后，您可以：
 
-1. 阅读 [README.md](README.md) 了解详细用法
+1. 阅读 [README.md](../README.md) 了解详细用法
 2. 查看 [DESIGN.md](DESIGN.md) 了解架构设计
 3. 运行 `integration/explorer_example.py` 进行测试
 4. 根据需要自定义探索目标

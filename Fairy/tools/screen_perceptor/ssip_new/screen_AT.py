@@ -18,11 +18,19 @@ class ScreenAccessibilityTree:
         self.at_dict = []
         for at_node in self.at_dict_raw:
             if target_app is not None:
-                if '@package' in at_node and at_node['@package'] == target_app :
+                package = at_node.get('@package', '')
+                # 保留目标app的节点，或者android系统弹窗（PopupWindow、Dialog等）
+                should_keep = (
+                    package == target_app or
+                    package == 'android' or
+                    'PopupWindow' in package or
+                    'Dialog' in package
+                )
+                if should_keep:
                     self.at_dict.append(self._node_info_collector(at_node, []))
                 else:
                     logger.bind(log_tag="fairy_sys").info(
-                        f"[Screen Perception] The nodes of package {at_node['@package']} have been ignored because the app package was specified!")
+                        f"[Screen Perception] The nodes of package {package} have been ignored because the app package was specified!")
             else:
                 self.at_dict.append(self._node_info_collector(at_node, []))
         if len(self.at_dict) == 0:

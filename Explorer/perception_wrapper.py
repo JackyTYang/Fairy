@@ -129,16 +129,16 @@ class PerceptionWrapper:
             target_app=target_app
         )
 
-        # 4. 压缩XML
+        # 4. 压缩XML (仅用于生成旧格式的compressed_xml，compressed_txt改用som_compressed_txt)
         logger.debug("压缩XML...")
         compressor = XMLCompressor(output_dir=capture_data['capture_folder'])
-        compressed_xml_path, compressed_txt_path = await compressor.compress_xml(
+        compressed_xml_path, _ = await compressor.compress_xml(
             ui_xml=ui_xml,
             timestamp=capture_data['timestamp'],
             target_app=target_app
         )
 
-        # 5. 保存SoM映射
+        # 5. 保存SoM映射和对应的compressed文本（确保索引一致）
         import json
         som_mapping_path = os.path.join(
             capture_data['capture_folder'],
@@ -146,6 +146,14 @@ class PerceptionWrapper:
         )
         with open(som_mapping_path, 'w', encoding='utf-8') as f:
             json.dump(perception_infos.SoM_mapping, f, indent=2)
+
+        # ⭐ 保存与SoM_mapping索引对应的compressed文本
+        compressed_txt_path = os.path.join(
+            capture_data['capture_folder'],
+            f"compressed_{capture_data['timestamp']}.txt"
+        )
+        with open(compressed_txt_path, 'w', encoding='utf-8') as f:
+            f.write(perception_infos.som_compressed_txt if perception_infos.som_compressed_txt else "")
 
         # 6. 构建输出对象
         marked_screenshot_path = screenshot_file_info.get_screenshot_fullpath()

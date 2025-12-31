@@ -36,21 +36,204 @@ class ScreenPerceptionAccessibilityTree(ScreenAccessibilityTree):
         nodes_need_marked = {
             "clickable": {
                 'node_bounds_list':{},
-                'node_center_list':{}
+                'node_center_list':{},
+                'node_info_list': {}  # 存储完整节点信息用于生成compressed_txt
             },
             "scrollable": {
                 'node_bounds_list': {},
-                'node_center_list': {}
+                'node_center_list': {},
+                'node_info_list': {}
             }
         }
+
+        # ⭐ 新增：收集所有节点用于遮挡检测
+        all_clickable_nodes = []
+
+        def _extract_all_text(node):
+            """递归提取节点及其所有子节点的文本"""
+            texts = []
+
+            # 获取当前节点的文本
+            if node.get('text') and node.get('text').strip():
+                texts.append(node['text'].strip())
+
+            # 递归获取子节点的文本
+            for child in node.get('children', []):
+                child_texts = _extract_all_text(child)
+                texts.extend(child_texts)
+
+            return texts
+
+        def _point_in_bounds(point, bounds):
+            """判断点是否在矩形范围内
+
+            Args:
+                point: [x, y]
+                bounds: [[x1, y1], [x2, y2]]
+
+            Returns:
+                bool
+            """
+            if not point or not bounds:
+                return False
+            if len(bounds) != 2 or len(bounds[0]) != 2 or len(bounds[1]) != 2:
+                return False
+            x, y = point
+            x1, y1 = bounds[0]
+            x2, y2 = bounds[1]
+            return x1 <= x <= x2 and y1 <= y <= y2
+
+        def _calculate_area(bounds):
+            """计算矩形面积
+
+            Args:
+                bounds: [[x1, y1], [x2, y2]]
+
+            Returns:
+                int: 面积
+            """
+            if not bounds or len(bounds) != 2:
+                return 0
+            (x1, y1), (x2, y2) = bounds
+            return max(0, (x2 - x1) * (y2 - y1))
+
+        def _calculate_intersection(bounds1, bounds2):
+            """计算两个矩形的交集面积
+
+            Args:
+                bounds1: [[x1, y1], [x2, y2]]
+                bounds2: [[x1, y1], [x2, y2]]
+
+            Returns:
+                int: 交集面积
+            """
+            if not bounds1 or not bounds2:
+                return 0
+
+            (x1_1, y1_1), (x2_1, y2_1) = bounds1
+            (x1_2, y1_2), (x2_2, y2_2) = bounds2
+
+            # 计算交集矩形
+            x1 = max(x1_1, x1_2)
+            y1 = max(y1_1, y1_2)
+            x2 = min(x2_1, x2_2)
+            y2 = min(y2_1, y2_2)
+
+            # 如果没有交集
+            if x1 >= x2 or y1 >= y2:
+                return 0
+
+            return (x2 - x1) * (y2 - y1)
+
+        def _is_view_occluded(node, all_nodes, occlusion_threshold=0.7):
+            """检测View是否被其他View遮挡（基于面积法）
+
+            Args:
+                node: 当前节点
+                all_nodes: 所有可点击节点列表（按访问顺序，后面的可能在上层）
+                occlusion_threshold: 遮挡面积阈值（默认70%）
+
+            Returns:
+                bool: True表示被遮挡超过阈值
+            """
+            node_bounds = node.get('bounds')
+            node_center = node.get('center')
+
+            if not node_bounds or not node_center:
+                return False
+
+            # 计算节点的矩形面积
+            node_area = _calculate_area(node_bounds)
+            if node_area == 0:
+                return False
+
+            # 获取当前节点在列表中的索引
+            try:
+                node_index = all_nodes.index(node)
+            except ValueError:
+                return False
+
+            # ⭐ 快速检查：如果中心点没被覆盖，大概率不被遮挡（性能优化）
+            center_covered = False
+            for upper_node in all_nodes[node_index + 1:]:
+                upper_bounds = upper_node.get('bounds')
+                if upper_bounds and _point_in_bounds(node_center, upper_bounds):
+                    center_covered = True
+                    break
+
+            # 中心点未被覆盖 → 直接判定为不遮挡
+            if not center_covered:
+                return False
+
+            # ⭐ 精确检查：计算遮挡面积
+            total_occluded_area = 0
+
+            # 检查所有在后面访问的节点（可能在上层）
+            for upper_node in all_nodes[node_index + 1:]:
+                upper_bounds = upper_node.get('bounds')
+                if not upper_bounds:
+                    continue
+
+                # 计算交集面积
+                intersection_area = _calculate_intersection(node_bounds, upper_bounds)
+                total_occluded_area += intersection_area
+
+            # 计算遮挡比例
+            occlusion_ratio = total_occluded_area / node_area
+
+            # 只有当遮挡超过阈值时才认为被遮挡
+            if occlusion_ratio >= occlusion_threshold:
+                node_id = node.get('resource-id', 'Unknown')
+                node_text = node.get('text', '')[:20] if node.get('text') else ''
+
+                print(f"⚠️  High occlusion detected:")
+                print(f"   Occluded: [{node_id}] '{node_text}' at {node_center}")
+                print(f"   Occlusion ratio: {occlusion_ratio:.1%} (threshold: {occlusion_threshold:.0%})")
+                print(f"   Node area: {node_area}, Occluded area: {total_occluded_area}")
+                return True
+
+            return False
+
         def _add_node(node, type):
             nonlocal index
+
+            # ⭐ 检查是否被遮挡（仅对clickable节点检测，减少性能开销）
+            if type == "clickable" and _is_view_occluded(node, all_clickable_nodes):
+                print(f"   → Skipped Mark {index} (occluded)")
+                # 不增加index，直接跳过这个被遮挡的节点
+                return node
+
             if set_mark: node["mark"] = index
             nodes_need_marked[type]['node_bounds_list'][index] = node["bounds"]
             nodes_need_marked[type]['node_center_list'][index] = node["center"]
+
+            # ⭐ 提取所有文本（包括子节点）
+            all_texts = _extract_all_text(node)
+            combined_text = ' | '.join(all_texts) if all_texts else ''
+
+            # 存储完整节点信息（确保与SoM_mapping索引一致）
+            nodes_need_marked[type]['node_info_list'][index] = {
+                'class': node.get('class', 'Unknown'),
+                'resource-id': node.get('resource-id'),
+                'text': combined_text,  # ⭐ 使用合并后的文本
+                'center': node.get('center'),
+                'bounds': node.get('bounds'),
+                'properties': node.get('properties', [])
+            }
+
             index = index + 1
             return node
 
+        # ⭐ 第一遍遍历：收集所有可点击节点
+        def _collect_clickable_nodes(node):
+            if "clickable" in node['properties']:
+                all_clickable_nodes.append(node)
+            return node
+
+        for at_node in self.at_dict:
+            self._common_filter(at_node, _collect_clickable_nodes)
+
+        # ⭐ 第二遍遍历：标记节点（会应用遮挡检测）
         def _clickable_and_scrollable_filter(node):
             if "clickable" in node['properties']:
                 node = _add_node(node, "clickable")

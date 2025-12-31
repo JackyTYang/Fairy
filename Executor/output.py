@@ -103,17 +103,26 @@ class OutputManager:
         manager.save_execution_result(execution_output)
     """
 
-    def __init__(self, output_dir: Path, session_id: Optional[str] = None):
+    def __init__(self, output_dir: Path, session_id: Optional[str] = None, use_session_subdir: bool = True):
         """
         Args:
             output_dir: 输出根目录
             session_id: 会话ID，用于区分不同的执行会话。如果不指定，使用时间戳
+            use_session_subdir: 是否在output_dir下创建session子目录（默认True）
+                                设为False时，直接使用output_dir作为输出目录
         """
         self.output_dir = Path(output_dir)
-        self.session_id = session_id or datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        if use_session_subdir:
+            # 独立模式：创建时间戳子目录
+            self.session_id = session_id or datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.session_dir = self.output_dir / self.session_id
+        else:
+            # 集成模式：直接使用output_dir
+            self.session_dir = self.output_dir
+            self.session_id = self.output_dir.name
 
         # 创建会话目录
-        self.session_dir = self.output_dir / self.session_id
         self.session_dir.mkdir(parents=True, exist_ok=True)
 
         # 创建子目录

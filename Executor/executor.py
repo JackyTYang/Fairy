@@ -48,14 +48,17 @@ class FairyExecutor:
         next_agent.process(result)
     """
 
-    def __init__(self, config: ExecutorConfig):
+    def __init__(self, config: ExecutorConfig, use_session_subdir: bool = True):
         """
         初始化执行器
 
         Args:
             config: 执行器配置对象
+            use_session_subdir: 是否在output_dir下创建session子目录（默认True）
+                                由Explorer调用时应设为False
         """
         self.config = config
+        self.use_session_subdir = use_session_subdir
         logger.info(f"初始化FairyExecutor，设备: {config.device.device_id}")
 
         # 初始化模型客户端
@@ -83,7 +86,10 @@ class FairyExecutor:
             logger.warning("屏幕感知器未配置")
 
         # 初始化输出管理器
-        self.output_manager = OutputManager(config.output.output_dir)
+        self.output_manager = OutputManager(
+            config.output.output_dir,
+            use_session_subdir=use_session_subdir
+        )
         logger.info(f"输出目录: {self.output_manager.session_dir}")
 
     def _create_fairy_config(self):
@@ -214,6 +220,19 @@ class FairyExecutor:
 
                 logger.info(f"[{execution_id}] 决策完成，准备执行 {len(action_info.actions)} 个动作")
                 final_action_info = action_info
+
+                # ⭐ 检测动作数量，发出警告
+                non_wait_actions = [a for a in action_info.actions if a['name'] != 'Wait']
+                if len(non_wait_actions) > 3:
+                    logger.warning(f"[{execution_id}] ⚠️⚠️⚠️ 动作数量警告 ⚠️⚠️⚠️")
+                    logger.warning(f"[{execution_id}] 本次执行包含 {len(non_wait_actions)} 个非Wait动作（总共 {len(action_info.actions)} 个动作）")
+                    logger.warning(f"[{execution_id}] 这可能导致以下问题：")
+                    logger.warning(f"[{execution_id}]   1. 只有第一个动作后会截图和反思，后续动作的结果无法验证")
+                    logger.warning(f"[{execution_id}]   2. 中间状态丢失，状态树无法记录完整路径")
+                    logger.warning(f"[{execution_id}]   3. 如果中间某步失败，无法定位具体哪一步出错")
+                    logger.warning(f"[{execution_id}] 建议：让Planner将此step拆分成 {len(non_wait_actions)} 个独立的step")
+                    logger.warning(f"[{execution_id}] 动作列表：{[a['name'] for a in action_info.actions]}")
+                    logger.warning(f"[{execution_id}] ======================================")
 
                 # 3. 执行动作并立刻捕获屏幕（捕获短暂的toast）
                 screen_after = await self._execute_actions_and_capture(action_info.actions, execution_id)
@@ -686,11 +705,28 @@ class FairyExecutor:
                     duration = action['arguments']['duration']
                     direction = action['arguments']['direction']
 
+                    # ⭐ 定义边界安全区（避免滑动起点/终点太接近边界）
+                    # 增大边界值以避开底部固定栏等区域
+                    SWIPE_MARGIN = 200  # 距离边界的安全距离（增大到200像素）
+
                     if direction == 'H':
                         # 垂直滑动
                         dy = height * abs(distance) / 2
+
+                        # ⭐ 限制滑动范围，确保起点和终点都在安全区域内
+                        max_dy_from_center_to_bottom = (y2 - center_y) - SWIPE_MARGIN
+                        max_dy_from_center_to_top = (center_y - y1) - SWIPE_MARGIN
+
+                        # 限制 dy 不超过安全范围
+                        dy = min(dy, max_dy_from_center_to_bottom, max_dy_from_center_to_top)
+
+                        if dy <= 0:
+                            logger.warning(f"标记 #{mark_number} 的滑动区域太小（height={height}），使用最小滑动距离")
+                            dy = min(200, height / 3)  # 至少滑动 200 像素或区域的 1/3
+
                         start_y = center_y + dy if distance > 0 else center_y - dy
                         end_y = center_y - dy if distance > 0 else center_y + dy
+
                         swipe_action = {
                             'name': action['name'],
                             'arguments': {
@@ -700,12 +736,26 @@ class FairyExecutor:
                             }
                         }
                         logger.info(f"Swipe动作转换: 标记#{mark_number} -> 垂直滑动 ({center_x:.0f}, {start_y:.0f}) -> ({center_x:.0f}, {end_y:.0f})")
+                        logger.debug(f"  区域: y={y1}-{y2}, center_y={center_y:.0f}, dy={dy:.0f}, margin={SWIPE_MARGIN}")
                         converted_actions.append(swipe_action)
                     elif direction == 'W':
                         # 水平滑动
                         dx = width * abs(distance) / 2
+
+                        # ⭐ 限制滑动范围，确保起点和终点都在安全区域内
+                        max_dx_from_center_to_right = (x2 - center_x) - SWIPE_MARGIN
+                        max_dx_from_center_to_left = (center_x - x1) - SWIPE_MARGIN
+
+                        # 限制 dx 不超过安全范围
+                        dx = min(dx, max_dx_from_center_to_right, max_dx_from_center_to_left)
+
+                        if dx <= 0:
+                            logger.warning(f"标记 #{mark_number} 的滑动区域太小（width={width}），使用最小滑动距离")
+                            dx = min(200, width / 3)  # 至少滑动 200 像素或区域的 1/3
+
                         start_x = center_x + dx if distance > 0 else center_x - dx
                         end_x = center_x - dx if distance > 0 else center_x + dx
+
                         swipe_action = {
                             'name': action['name'],
                             'arguments': {
@@ -715,6 +765,7 @@ class FairyExecutor:
                             }
                         }
                         logger.info(f"Swipe动作转换: 标记#{mark_number} -> 水平滑动 ({start_x:.0f}, {center_y:.0f}) -> ({end_x:.0f}, {center_y:.0f})")
+                        logger.debug(f"  区域: x={x1}-{x2}, center_x={center_x:.0f}, dx={dx:.0f}, margin={SWIPE_MARGIN}")
                         converted_actions.append(swipe_action)
                 else:
                     logger.warning(f"标记 #{mark_number} 转换失败，Swipe动作被丢弃")
@@ -743,20 +794,24 @@ class FairyExecutor:
 
     async def _execute_actions_and_capture(self, actions: List[Dict], execution_id: str):
         """
-        执行动作并进行两次截图（捕获短暂提示 + 稳定页面）
+        执行动作并进行截图（可选双截图或单截图）
 
         执行流程：
-        1. 执行主要动作
-        2. 等待0.2秒 → 第一次快速截图（捕获快速消失的bubble/toast）
-        3. 等待到5秒 → 第二次截图（页面完全稳定/加载完成）
-        4. 两张截图都保留，传给Reflector让LLM判断
+        - 如果 enable_immediate_screenshot=True（双截图模式）：
+          1. 执行主要动作
+          2. 等待0.2秒 → 第一次快速截图（捕获快速消失的bubble/toast）
+          3. 等待到5秒 → 第二次截图（页面完全稳定/加载完成）
+          4. 两张截图都保留，传给Reflector让LLM判断
+        - 如果 enable_immediate_screenshot=False（单截图模式，默认）：
+          1. 执行主要动作
+          2. 等待5秒 → 截图（页面完全稳定/加载完成）
 
         Args:
             actions: 动作列表
             execution_id: 执行ID
 
         Returns:
-            ScreenInfo: 执行后的屏幕信息（包含两次截图）
+            ScreenInfo: 执行后的屏幕信息（单截图或双截图）
         """
         import asyncio
         import time
@@ -764,9 +819,13 @@ class FairyExecutor:
 
         if not actions:
             logger.warning("动作列表为空，无操作执行")
-            return None
+            logger.info("虽然无动作执行，但仍需捕获当前屏幕状态以保持执行流程完整性")
+            return await self._get_screen_info()
 
-        logger.info(f"执行 {len(actions)} 个动作（双重截图模式）")
+        # ⭐ 根据配置决定截图模式
+        enable_immediate = self.config.perception.enable_immediate_screenshot
+        mode_str = "双截图模式" if enable_immediate else "单截图模式（5秒稳定）"
+        logger.info(f"执行 {len(actions)} 个动作（{mode_str}）")
 
         # 找到第一个非Wait动作
         first_action_idx = -1
@@ -785,24 +844,33 @@ class FairyExecutor:
         logger.info(f"[{execution_id}] 执行主要动作: {first_action['name']}")
         await self.controller.execute_actions([first_action])
 
-        # ⭐ 第一次截图：等待0.2秒后立刻截图（捕获快速bubble）
-        logger.info(f"[{execution_id}] 等待0.2秒后进行第一次截图（捕获快速提示）...")
-        await asyncio.sleep(0.2)
+        # ⭐ 声明变量（可能为None）
+        screenshot_file_info_1 = None
+        ui_xml_1 = None
 
-        capture_time = time.time()
-        # 快速截图1：跳过5秒等待，直接截图+XML
-        screenshot_file_info_1 = ScreenFileInfo(
-            self.screen_capturer.screenshot_temp_path,
-            f"{self.screen_capturer.screenshot_filename}_immediate",
-            'png'
-        )
-        self.controller.dev.screenshot(screenshot_file_info_1.get_screenshot_fullpath())
-        ui_xml_1 = self.controller.dev.dump_hierarchy()
-        logger.info(f"[{execution_id}] 第一次截图完成，耗时: {time.time() - capture_time:.2f}秒")
+        # ⭐ 如果启用立刻截图：等待0.2秒后立刻截图（捕获快速bubble）
+        if enable_immediate:
+            logger.info(f"[{execution_id}] 等待0.2秒后进行第一次截图（捕获快速提示）...")
+            await asyncio.sleep(0.2)
 
-        # ⭐ 第二次截图：等待到5秒（总共5秒 - 0.2秒 = 4.8秒）
-        logger.info(f"[{execution_id}] 等待到5秒后进行第二次截图（页面稳定）...")
-        await asyncio.sleep(4.8)
+            capture_time = time.time()
+            # 快速截图1：跳过5秒等待，直接截图+XML
+            screenshot_file_info_1 = ScreenFileInfo(
+                self.screen_capturer.screenshot_temp_path,
+                f"{self.screen_capturer.screenshot_filename}_immediate",
+                'png'
+            )
+            self.controller.dev.screenshot(screenshot_file_info_1.get_screenshot_fullpath())
+            ui_xml_1 = self.controller.dev.dump_hierarchy()
+            logger.info(f"[{execution_id}] 第一次截图完成，耗时: {time.time() - capture_time:.2f}秒")
+
+            # 等待到5秒（总共5秒 - 0.2秒 = 4.8秒）
+            logger.info(f"[{execution_id}] 等待到5秒后进行第二次截图（页面稳定）...")
+            await asyncio.sleep(4.8)
+        else:
+            # ⭐ 单截图模式：等待5秒
+            logger.info(f"[{execution_id}] 等待5秒后进行截图（页面稳定）...")
+            await asyncio.sleep(5.0)
 
         capture_time = time.time()
         # 快速截图2
@@ -820,13 +888,14 @@ class FairyExecutor:
         activity_info = await self.screen_capturer.get_current_activity()
         keyboard_status = await self.screen_capturer.get_keyboard_activation_status()
 
-        # 压缩两张图
+        # 压缩两张图（如果有立刻截图）
         screenshot_file_info_2.compress_image_to_jpeg()
-        screenshot_file_info_1.compress_image_to_jpeg()
+        if enable_immediate and screenshot_file_info_1:
+            screenshot_file_info_1.compress_image_to_jpeg()
 
-        # ⭐ 屏幕感知：对两张截图都进行完整的SoM标记处理
+        # ⭐ 屏幕感知：根据配置决定是否对两张截图都进行SoM标记
         if self.screen_perceptor is not None:
-            # 1. 处理stable截图（5秒）
+            # 1. 处理stable截图（5秒） - 总是需要
             logger.info(f"[{execution_id}] 开始屏幕感知（stable截图，5秒）...")
             screenshot_file_info_2, perception_infos_stable = await self.screen_perceptor.get_perception_infos(
                 screenshot_file_info_2,
@@ -835,15 +904,19 @@ class FairyExecutor:
                 target_app=activity_info.package_name
             )
 
-            # 2. 处理immediate截图（0.2秒）- 完整的SoM标记
-            logger.info(f"[{execution_id}] 开始屏幕感知（immediate截图，0.2秒）...")
-            screenshot_file_info_1, perception_infos_immediate = await self.screen_perceptor.get_perception_infos(
-                screenshot_file_info_1,
-                ui_xml_1,
-                non_visual_mode=self.config.perception.non_visual_mode,
-                target_app=activity_info.package_name
-            )
-            logger.info(f"[{execution_id}] 两张截图的SoM标记都已完成")
+            # 2. 如果启用立刻截图，处理immediate截图（0.2秒）- 完整的SoM标记
+            perception_infos_immediate = None
+            if enable_immediate and screenshot_file_info_1 and ui_xml_1:
+                logger.info(f"[{execution_id}] 开始屏幕感知（immediate截图，0.2秒）...")
+                screenshot_file_info_1, perception_infos_immediate = await self.screen_perceptor.get_perception_infos(
+                    screenshot_file_info_1,
+                    ui_xml_1,
+                    non_visual_mode=self.config.perception.non_visual_mode,
+                    target_app=activity_info.package_name
+                )
+                logger.info(f"[{execution_id}] 两张截图的SoM标记都已完成")
+            else:
+                logger.info(f"[{execution_id}] SoM标记已完成（仅stable截图）")
         else:
             from Fairy.tools.screen_perceptor.entity import ScreenPerceptionInfo
             perception_infos_stable = ScreenPerceptionInfo(
@@ -853,29 +926,41 @@ class FairyExecutor:
                 keyboard_status=keyboard_status,
                 use_set_of_marks_mapping=False
             )
-            perception_infos_immediate = ScreenPerceptionInfo(
-                width=screenshot_file_info_1.get_screenshot_Image_file().width,
-                height=screenshot_file_info_1.get_screenshot_Image_file().height,
-                perception_infos=ui_xml_1,
-                keyboard_status=keyboard_status,
-                use_set_of_marks_mapping=False
-            )
+            perception_infos_immediate = None
+            if enable_immediate and screenshot_file_info_1 and ui_xml_1:
+                perception_infos_immediate = ScreenPerceptionInfo(
+                    width=screenshot_file_info_1.get_screenshot_Image_file().width,
+                    height=screenshot_file_info_1.get_screenshot_Image_file().height,
+                    perception_infos=ui_xml_1,
+                    keyboard_status=keyboard_status,
+                    use_set_of_marks_mapping=False
+                )
 
         # 构建ScreenInfo（主要用stable）
         from Fairy.entity.info_entity import ScreenInfo
         screen_after = ScreenInfo(screenshot_file_info_2, perception_infos_stable, activity_info)
 
-        # ⭐ 附加immediate截图的完整信息（包括标记后的截图、SoM mapping等）
-        screen_after.immediate_screenshot_path = screenshot_file_info_1.get_screenshot_fullpath()
-        screen_after.immediate_marked_screenshot_path = screenshot_file_info_1.get_screenshot_fullpath().replace('.jpeg', '_marked.jpeg')
-        screen_after.immediate_xml = ui_xml_1
-        screen_after.immediate_perception_infos = perception_infos_immediate
-        screen_after.capture_timing = {
-            'immediate': '0.2秒（捕获快速提示）',
-            'stable': '5秒（页面稳定）'
-        }
-
-        logger.info(f"[{execution_id}] 完整屏幕信息获取完成（包含两次截图）")
+        # ⭐ 如果启用立刻截图，附加immediate截图的完整信息
+        if enable_immediate and screenshot_file_info_1:
+            screen_after.immediate_screenshot_path = screenshot_file_info_1.get_screenshot_fullpath()
+            screen_after.immediate_marked_screenshot_path = screenshot_file_info_1.get_screenshot_fullpath().replace('.jpeg', '_marked.jpeg')
+            screen_after.immediate_xml = ui_xml_1
+            screen_after.immediate_perception_infos = perception_infos_immediate
+            screen_after.capture_timing = {
+                'immediate': '0.2秒（捕获快速提示）',
+                'stable': '5秒（页面稳定）'
+            }
+            logger.info(f"[{execution_id}] 完整屏幕信息获取完成（包含两次截图）")
+        else:
+            # ⭐ 单截图模式：不设置immediate相关属性（或设为None）
+            screen_after.immediate_screenshot_path = None
+            screen_after.immediate_marked_screenshot_path = None
+            screen_after.immediate_xml = None
+            screen_after.immediate_perception_infos = None
+            screen_after.capture_timing = {
+                'stable': '5秒（页面稳定）'
+            }
+            logger.info(f"[{execution_id}] 完整屏幕信息获取完成（单截图模式）")
 
         # 执行剩余的非Wait动作
         remaining_actions = [
@@ -936,15 +1021,20 @@ class FairyExecutor:
         if not self.config.perception.non_visual_mode:
             images.append(screen_before.screenshot_file_info.get_screenshot_Image_file())
 
-            # ⭐ 添加执行后的两张截图（0.2秒立刻截图 + 5秒稳定截图）
-            if hasattr(screen_after, 'immediate_screenshot_path') and screen_after.immediate_screenshot_path:
+            # ⭐ 添加执行后的截图（可能是1张或2张）
+            # 检查是否有立刻截图（0.2秒）
+            if (hasattr(screen_after, 'immediate_screenshot_path') and
+                screen_after.immediate_screenshot_path is not None and
+                screen_after.immediate_screenshot_path):
                 # 加载立刻截图（0.2秒）
                 from PIL import Image
                 immediate_img = Image.open(screen_after.immediate_screenshot_path)
                 images.append(immediate_img)
+                logger.debug(f"加载立刻截图（0.2秒）用于反思: {screen_after.immediate_screenshot_path}")
 
-            # 主截图（5秒稳定）
+            # 主截图（5秒稳定） - 总是需要
             images.append(screen_after.screenshot_file_info.get_screenshot_Image_file())
+            logger.debug(f"共准备了 {len(images)} 张截图用于反思")
 
         # 调用 LLM
         system_message = ChatMessage(
@@ -1041,8 +1131,12 @@ class FairyExecutor:
         current_screen: ScreenInfo
     ) -> str:
         """构建屏幕对比的 prompt 部分"""
-        # ⭐ 检查是否有双重截图
-        has_dual_screenshots = hasattr(current_screen, 'immediate_screenshot_path') and current_screen.immediate_screenshot_path
+        # ⭐ 检查是否有双重截图（需同时满足：属性存在且不为None）
+        has_dual_screenshots = (
+            hasattr(current_screen, 'immediate_screenshot_path') and
+            current_screen.immediate_screenshot_path is not None and
+            current_screen.immediate_screenshot_path
+        )
 
         if not self.config.perception.non_visual_mode:
             if has_dual_screenshots:
